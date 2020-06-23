@@ -1,5 +1,10 @@
 # Funcions per llegir una llista de monuments
-# i posar part de i format per als forns de calç
+# i posar part de i format per a elements d'un conjunt
+# Paràmetres:
+# - Nom de la llista (entre cometes)
+# - Item del conjunt (no calen cometes)
+# - Patró per identificar els elements del conjunt pel valor de nomcoor. Com que es
+#   fa servir amb match inclou el principi del nom.
 #
 # PER FER:
 
@@ -80,7 +85,7 @@ instruccions=""
 informe=""
 for item in llistaq:
     #print(monllista[item]["nomcoor"].casefold())
-    if re.match(patro, monllista[item]["nomcoor"].casefold()):
+    if bool(re.match(patro, monllista[item]["nomcoor"].casefold())) & (conjunt != item):
         instruccio1=conjunt+"|"+"P527"+"|"+item
         instruccio2=item+"|"+"P361"+"|"+conjunt
         instruccions=instruccions+instruccio1+"||"+instruccio2+"||"

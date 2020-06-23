@@ -2,18 +2,25 @@
 # Al final genera un informe de diferències i les instruccions pel quickstatements.
 # Fa servir el paràmetre wikidata com a clau i crea items amb les fileres que no en tinguin.
 # La llista se li dóna com a paràmetre extern. Per exemple:
-# python llistamon15arg.py "Llista de monuments de Viladrau"
+# python llistamon.py "Llista de monuments de Viladrau"
 # Les cometes són opcionals.
+# Paràmetres generals:
+# -nocommons: no posa el sitelink de commons (útil quan algun ja està enllaçat a Wikidata i quickstatemens dóna error)
+# -ipacdisc: no importa tots els item amb codi IPAC de Wikidata (P1600) sinó que fa servir la versió guardada el darrer cop.
+# Paràmetres per esborrar dades:
+# El programa no esborra ni canvia propietats que ja estiguin a Wikidata excepte amb els següents paràmetres
+# (utilitzeu-los amb prudència):
+# -treubcil: treu P1435=BCIL de Wikidata quan a la llista són béns inventariats
+# -posabcil: treu P1435=Inventariat de Wikidata quan a la llista són BCIL
+# -treucoor: canvia les coordenades existents a Wikidata per les de la llista. Només per suposats errors de datum amb esglésies. (en implementació)
 #
 # PER FER:
 # Comprovar si IPAC diferent
 # Comprovar si hi ha descripció i fer-ne
-# Fer descripcions en anglès i més llengües
-# Paràmetre per ometre sitecommons
+# Fer etiquetes i descripcions en anglès i més llengües
 # Reconèixer i pujar dos estils junts
 # Buscar diferències llistes/wikidata (en els paràmetres que falten)
 # Treballar per categories de llistes en comptes de llistes individuals
-# Reintentar automàticament en cas d'error http
 # Adaptar-lo a plantilles de monumenst diferents de fileraIPA i monuments no catalans
 # Adaptar-lo a patrimoni natural, arbres singulars i rellotges de sol
 # Reconèixer quan sitecommons ja està agafat
@@ -25,6 +32,8 @@ import math
 import re
 import pickle
 import sys
+import urllib
+import time
 
 def al(sn):
     #print(sn)
@@ -75,17 +84,17 @@ def treuparams(plant):
     params[trossos[0]]="=".join(trossos[1:])
   return(params)
 
+def monunallista(llista, filera=pwb.Page(pwb.Site('ca'), "Plantilla:Filera IPA")):
 # Retorna diccionari amb els monuments d'una llista de monuments
 # i una llista amb els paràmetres wikidata.
 # Fa servir el paràmetre wikidata com a clau.
-# Els que no en tenen no els inclou.
+# Els que no en tenen els dóna un índex provisional.
 # Al diccionari sobreescriu els duplicats.
-def monunallista(llista, filera=pwb.Page(pwb.Site('ca'), "Plantilla:Filera IPA")):
     plantilles = pag.templatesWithParams()
     monllista = {}
     monq = []
     monnoq = []
-    ni = "NOWIKIDATA"
+    ni = 1
     for plantilla in plantilles:
       #print(plantilla[0])
       if plantilla[0]==filera:
@@ -94,25 +103,43 @@ def monunallista(llista, filera=pwb.Page(pwb.Site('ca'), "Plantilla:Filera IPA")
             index=params["wikidata"]
             monq.append(index)
         else:
-            index=ni
-            ni=ni+"1"
+            index="NWD"+str(ni)
+            ni=ni+1
             monnoq.append(index)
         monllista[index]=params
     return(monllista, monq, monnoq)
 
 
 def get_results(endpoint_url, query):
-    sparql = SPARQLWrapper(endpoint_url)
+    user_agent = "PereBot/1.0 (ca:User:Pere_prlpz; prlpzb@gmail.com) Python/%s.%s" % (sys.version_info[0], sys.version_info[1])
+    sparql = SPARQLWrapper(endpoint_url, agent=user_agent)
     sparql.setQuery(query)
     sparql.setReturnFormat(JSON)
     return sparql.query().convert()
+
+def get_results2(endpoint_url, query):
+    user_agent = "PereBot/1.0 (prlpzb@gmail.com) Python/%s.%s" % (sys.version_info[0], sys.version_info[1])
+    print (user_agent)
+    sparql = SPARQLWrapper(endpoint_url, agent=user_agent)
+    sparql.setQuery(query)
+    sparql.setReturnFormat(JSON)
+    try:
+        resposta = sparql.query().convert()
+        return resposta
+    except urllib.error.HTTPError:
+        print("Error HTTP. Espero i ho torno a provar.")
+        time.sleep(15)
+        resposta = sparql.query().convert()
+        return resposta
     
 def get_municipis(desa=True):
     # diccionari de municipis a item, directe i invers
     # l'invers (label a item) en minúscules (casefold)
-    query = """SELECT DISTINCT ?mun ?munLabel 
+    # Fa servir també noms oficials i alies si no dupliquen un label.
+    query = """SELECT DISTINCT ?mun ?munLabel ?munAltLabel ?oficial
     WHERE {
         ?mun wdt:P31 wd:Q33146843.
+        OPTIONAL {?mun wdt:P1448 ?oficial}
         SERVICE wikibase:label {
         bd:serviceParam wikibase:language "ca" .
         }
@@ -128,12 +155,20 @@ def get_municipis(desa=True):
         nommun=mon["munLabel"]["value"]
         dicdirecte[qmun]=nommun
         dicinvers[nommun.casefold()]=qmun
+        if "oficial" in mon.keys():
+            nomoficial=mon["oficial"]["value"]
+            if not(nomoficial in dicinvers.keys()): 
+                dicinvers[nomoficial.casefold()]=qmun
+        if "munAltLabel" in mon.keys():
+            alies=mon["munAltLabel"]["value"]
+            if len(alies)>1 and not(alies.casefold() in dicinvers.keys()):
+                dicinvers[alies.casefold()]=qmun           
     if desa:
         fitxer = r"C:\Users\Pere\Documents\perebot\municipis.pkl"
         pickle.dump((dicdirecte, dicinvers), open(fitxer, "wb"))
     return(dicdirecte, dicinvers)
 
-def get_ipac():
+def get_ipac(desa=True):
     # monuments existents amb codi IPAC
     query = """SELECT DISTINCT ?mon ?monLabel ?ipac
     WHERE {
@@ -149,9 +184,39 @@ def get_ipac():
         qmon=mon["mon"]["value"].replace("http://www.wikidata.org/entity/","")
         nommon=mon["monLabel"]["value"]
         dicipac[mon["ipac"]["value"]]={"qmon":qmon, "nommon":nommon}
+    if desa:
+        fitxer = r"C:\Users\Pere\Documents\perebot\ipac.pkl"
+        pickle.dump(dicipac, open(fitxer, "wb"))
     return(dicipac)
 
+def carrega_ipac(disc=False):
+    if disc==True:
+        print ("Llegint del disc els IPAC existents a Wikidata")
+        ipac = pickle.load(open(r"C:\Users\Pere\Documents\perebot\ipac.pkl", "rb"))
+    else:
+        print ("Important amb una query els IPAC existents a Wikidata")
+        ipac = get_ipac()
+    return (ipac)
+
+def carrega_monwd(qitems):
+    n = len(qitems)
+    print(n,"elements per carregar")
+    if n<150:
+        inicis=[0]
+        finals=[n]
+    else:
+        mig=round(n/2)
+        inicis=[0, mig]
+        finals=[mig, n]
+    monuments={}
+    for i in range(len(inicis)):
+        print("carregant lot",i)
+        monuments.update(get_monwd(qitems[inicis[i]:finals[i]]))
+    print(len(monuments), "monuments llegits en", len(inicis),"fases")
+    return(monuments)
+
 def get_monwd(qitems):
+    #print(qitems)
     query = """SELECT DISTINCT ?item ?lon ?lat ?imatge ?prot ?itemLabel ?protLabel ?ipac ?mun ?estil ?estilLabel ?ccat ?commonslink ?estat ?conserva ?inst ?instLabel
     WHERE {
       VALUES ?item {"""+" ".join(["wd:"+el for el in qitems])+"""}
@@ -201,25 +266,29 @@ def carrega_municipis():
 
 def tria_instancia(nom0):
     nom = nom0.casefold()
-    if re.match("forn de( coure)? calç", nom):
+    if re.match("forns? de( coure)? calç", nom):
         return("Q59772", "forn de calç")
-    if re.match("forn de( coure)? guix", nom):
+    if re.match("forns? de( coure)? guix", nom):
         return("Q81801249", "forn de guix")
     elif re.match("església|parròquia|basílica", nom):
         return("Q16970", "església")
     elif re.match("ermita", nom):
         return("Q56750657", "ermita")
-    elif re.match("pont |viaducte", nom):
+    elif re.match("capell(et)?a ", nom):
+        return("Q108325", "capella")
+    elif re.match("ponts? |viaducte", nom):
         return("Q12280", "pont")
+    elif re.match("aqüeducte", nom):
+        return("Q474", "aqüeducte")
     elif re.match("creu de terme", nom):
         return("Q2309609", "creu de terme")
-    elif re.match("creu ", nom):
+    elif re.match("creus? ", nom):
         return("Q17172602", "creu")
     elif re.match("monument[s] ", nom):
         return("Q4989906", "monument")
     elif re.match("(escultur|estàtu)(a|es)", nom):
         return("Q860861", "escultura")
-    elif re.match("pou de (gel|glaç|neu)", nom):
+    elif re.match("pous? de (gel|glaç|neu)", nom):
         return("Q3666499", "pou de gel")
     elif re.match("(font|brollador)s? ", nom):
         return("Q483453", "font")
@@ -227,20 +296,44 @@ def tria_instancia(nom0):
         return("Q2962545", "xemeneia") #xemeneia idustrial
     elif re.match("mas(ia)? ", nom):
         return("Q585956", "masia")
+    elif re.match("finestr(a|es) ", nom):
+        return("Q35473", "element arquitectònic")
+    elif re.match("(llind(a|es)|dintells?) ", nom):
+        return("Q1370517", "element arquitectònic")
+    elif re.match("escuts? ", nom):
+        return("Q245117", "element arquitectònic")
+    elif re.match("búnquer? ", nom):
+        return("Q91122", "búnquer")
+    elif re.match("bord(a|es) ", nom):
+        return("Q13231610", "borda")
     else:
         return("Q41176", "edifici")
 
 # el programa comença aquí
 treubcil=False
+posabcil=False
 nocommons=False
+ipacdisc=False
+treucoor=False
+sparql = SPARQLWrapper("https://query.wikidata.org/sparql", agent="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.11 (KHTML, like Gecko) Chrome/23.0.1271.64 Safari/537.11")
 arguments = sys.argv[1:]
 if len(arguments)>0:
     if "-treubcil" in arguments:
         treubcil=True
         arguments.remove("-treubcil")
+    if "-posabcil" in arguments:
+        posabcil=True
+        arguments.remove("-posabcil")
     if "-nocommons" in arguments:
         nocommons=True
         arguments.remove("-nocommons")
+    if "-ipacdisc" in arguments:
+        ipacdisc=True
+        arguments.remove("-ipacdisc")
+    if "-treucoor" in arguments:
+        treucoor=True
+        arguments.remove("-treucoor")
+
 if len(arguments)>0:
     nomllista=" ".join(arguments)
 else:
@@ -258,10 +351,10 @@ nh = len(llistaq)
 nf = len(faltenq)
 print(nh+nf, " monuments: ", nh, " amb Wikidata i ", nf, " per crear")
 if len(faltenq)>0:
-    print ("Important IPAC existents de Wikidata")
-    ipacexist=get_ipac()
+    #print ("Important IPAC existents de Wikidata")
+    ipacexist=carrega_ipac(ipacdisc)
 print("Important monuments de Wikidata")
-monwd=get_monwd(llistaq)
+monwd=carrega_monwd(llistaq)
 for id in faltenq:
     monwd[id]={}
 print("Carregant diccionaris de municipis")
@@ -277,6 +370,7 @@ diccestil={}
 diccestil["romànic"]="Q46261"
 diccestil["gòtic"]="Q176483"
 diccestil["gòtic tardà"]="Q10924220"
+diccestil["renaixentista"]="Q236122"
 diccestil["renaixentista"]="Q236122"
 diccestil["renaixement"]="Q236122"
 diccestil["barroc"]="Q840829"
@@ -304,7 +398,7 @@ instruccions=""
 informe=""
 for item in llistaq+faltenq:
     #print(item)
-    if item[0:10]=="NOWIKIDATA":
+    if item[0:3]=="NWD":
         ipaclau= monllista[item]["id"].replace("IPA-","")
         if ipaclau in ipacexist.keys():
             #print (monllista[item]["nomcoor"], item, " IPAC duplicat de:")
@@ -332,9 +426,22 @@ for item in llistaq+faltenq:
             lonwd = float(monwd[item]["lon"]["value"])
             dist = distgeo(latll, lonll, latwd, lonwd)
             #print(item, " distància llista-WD ", dist, " km")
-            if dist>.2:
+            if dist>.110:
                     informe = informe + monllista[item]["nomcoor"] + " " + item 
-                    informe = informe + " a "+str(dist)+" km de Wikidata\n"
+                    informe = informe + " COORDENADES a "+str(round(dist,3))+" km de Wikidata"
+                    informe = informe + " ("+str(round(latwd-latll,5))+", "+str(round(lonwd-lonll,5))+")"
+                    if dist>.14 and dist<.16 and latwd-latll>.001 and latwd-latll<.0012 and lonwd-lonll>.0011 and lonwd-lonll<.0013:
+                        if re.match(".*([Ee]sglésia|[Cc]apella|Sant).*[(]", monllista[item]["nomcoor"]):
+                            informe = informe + " (coordenades a treure)"
+                            if treucoor==True:
+                                #Treu
+                                instruccio = "-"+indexq+"|"+"P625"+"|"+"@"+str(latwd)+"/"+str(lonwd)
+                                instruccions = instruccions + instruccio +"||"
+                                #Posa
+                                instruccio = indexq+"|"+"P625"+"|"+"@"+monllista[item]["lat"]+"/"+monllista[item]["lon"]
+                                instruccio = instruccio + "|S143|Q199693"
+                                instruccions = instruccions + instruccio +"||"
+                    informe = informe + "\n"
         else:
             #print("Pujar coordenades")
             #print(monllista[item])
@@ -361,6 +468,14 @@ for item in llistaq+faltenq:
                     informe = informe + "Traient BCIL de "
                     informe = informe + monllista[item]["nomcoor"] + " " + item + "\n"
                     instruccio = "-"+indexq+"|P1435|Q11910250"
+                    instruccions = instruccions + instruccio +"||"
+                    instruccio = indexq+"|P1435|"+protllista
+                    instruccio = instruccio + "|S143|Q199693" 
+                    instruccions = instruccions + instruccio +"||"
+                elif posabcil and protllista=="Q11910250" and qprotwd=="Q28034408":
+                    informe = informe + "Posant BCIL en comptes d'inventariat a "
+                    informe = informe + monllista[item]["nomcoor"] + " " + item + "\n"
+                    instruccio = "-"+indexq+"|P1435|Q28034408"
                     instruccions = instruccions + instruccio +"||"
                     instruccio = indexq+"|P1435|"+protllista
                     instruccio = instruccio + "|S143|Q199693" 
@@ -405,12 +520,20 @@ for item in llistaq+faltenq:
         if len(posaipac)>0:
             instruccio = indexq+"|P1600|"+'"'+posaipac+'"'#+"|S143|Q199693"
             instruccions = instruccions + instruccio +"||"
-    if "municipi" in monllista[item].keys() and len(monllista[item]["municipi"])>1:
-        munllista = dicmunq[monllista[item]["municipi"].casefold()]
+    elif "ipac" in monwd[item].keys() and "id" in monllista[item].keys() and "IPA-" in monllista[item]["id"]:
+        ipacwd = monwd[item]["ipac"]["value"]
+        ipacllista = monllista[item]["id"].replace("IPA-","")
+        if (ipacwd != ipacllista):
+            informe = informe + "IPAC DIFERENT a " + monllista[item]["nomcoor"] + " " + item + "\n"
+            informe = informe + "Llista: " + ipacllista
+            informe = informe + ", Wikidata: "+ ipacwd + "\n"            
+    if "municipi" in monllista[item].keys() and len(monllista[item]["municipi"])>1: 
+        nomunallista = monllista[item]["municipi"].casefold()
+        munllista = dicmunq[nomunallista]
         if "mun" in monwd[item].keys():
             munwd = monwd[item]["mun"]["value"].replace("http://www.wikidata.org/entity/","")
             if munllista != munwd:
-                informe = informe + "Municipis diferents a " + monllista[item]["nomcoor"] + " " + item + "\n"
+                informe = informe + "MUNICIPIS diferents a " + monllista[item]["nomcoor"] + " " + item + "\n"
                 informe = informe + "Llista: " + monllista[item]["municipi"] + " " + munllista
                 informe = informe + ", Wikidata: " + munwd + "\n"
         else:
@@ -419,11 +542,11 @@ for item in llistaq+faltenq:
     else:
         informe = informe + "Manca municipi a la llista a " + monllista[item]["nomcoor"] + " " + item + "\n"
     if "estil" in monllista[item].keys() and len(monllista[item]["estil"])>3:
-        if monllista[item]["estil"].casefold() in diccestil.keys():
-            estil0 = monllista[item]["estil"].casefold().replace("[[","").replace("]]","")
+        estil0 = monllista[item]["estil"].casefold().replace("[[","").replace("]]","")
+        if estil0 in diccestil.keys():
             qestil = diccestil[estil0]
         else:
-            estil0 = monllista[item]["estil"].split("<")[0].casefold().strip()
+            estil0 = monllista[item]["estil"].split("<")[0].casefold().strip(" ")
             if estil0 in diccestil.keys():
                 qestil = diccestil[estil0]
             else:
@@ -453,7 +576,6 @@ for item in llistaq+faltenq:
         instp31,denomino = tria_instancia(monllista[item]["nomcoor"])
         instruccions = instruccions + indexq+"|P31|"+instp31+"||"
 
-   
 print("Instruccions pel quickstatements:")
 print(instruccions,"\n")
 print(informe)

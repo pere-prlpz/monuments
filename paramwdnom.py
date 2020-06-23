@@ -1,3 +1,6 @@
+# Actualitza les llistes com com paramwd.py
+# però és pels monuments de les llistes de Barcelona que no tenen codi IPAC
+
 import pywikibot as pwb
 from SPARQLWrapper import SPARQLWrapper, JSON
 import mwparserfromhell
@@ -32,11 +35,13 @@ def get_results2(endpoint_url, query):
         resposta = sparql.query().convert()
         return resposta
         
-def get_ipac(desa=True):
+def get_noms(desa=False):
     # monuments existents amb codi IPAC
-    query = """SELECT DISTINCT ?mon ?monLabel ?ipac
+    # versió només Barcelona
+    query = """SELECT DISTINCT ?mon ?monLabel
     WHERE {
-      ?mon wdt:P1600 ?ipac.
+      ?mon wdt:P1435 wd:Q28034408.
+      ?mon wdt:P131* wd:Q1492.
       SERVICE wikibase:label {
         bd:serviceParam wikibase:language "ca, en".
       }
@@ -46,20 +51,19 @@ def get_ipac(desa=True):
     dicipac={}
     for mon in results["results"]["bindings"]:
         qmon=mon["mon"]["value"].replace("http://www.wikidata.org/entity/","")
-        nommon=mon["monLabel"]["value"]
-        dicipac[mon["ipac"]["value"]]={"qmon":qmon, "nommon":nommon}
+        dicipac[mon["monLabel"]["value"]]=qmon
     if desa:
-        fitxer = r"C:\Users\Pere\Documents\perebot\ipac.pkl"
+        fitxer = r"C:\Users\Pere\Documents\perebot\noms.pkl"
         pickle.dump(dicipac, open(fitxer, "wb"))
     return(dicipac)
 
-def carrega_ipac(disc=False):
+def carrega_noms(disc=False):
     if disc==True:
-        print ("Llegint del disc els IPAC existents a Wikidata")
-        ipac = pickle.load(open(r"C:\Users\Pere\Documents\perebot\ipac.pkl", "rb"))
+        print ("Llegint del disc els noms existents a Wikidata")
+        ipac = pickle.load(open(r"C:\Users\Pere\Documents\perebot\noms.pkl", "rb"))
     else:
-        print ("Important amb una query els IPAC existents a Wikidata")
-        ipac = get_ipac()
+        print ("Important amb una query els noms existents a Wikidata")
+        ipac = get_noms()
     return (ipac)
 
 def get_monwd(qitems):
@@ -115,17 +119,17 @@ def actuallista(pllista,diccipa,pagprova=False):
         if template.name.matches(("Filera IPA")):
             if template.has("wikidata"):
                 wd=template.get("wikidata").value.strip()
-                wd=re.sub("<!-- no ([Ww][Dd] )?((auto|amb bot) )?-->", "", wd)
+                wd=re.sub("<!-- no ?[Ww][Dd] ?auto -->", "", wd)
                 #print(wd)
             else:
                 wd=""
-            if wd=="" and template.has("id"):
-                id=template.get("id").value.strip()
-                id=re.sub("IPA-","",id)
-                print("Per",template.get("nomcoor").value.strip(),"busquem id:", id)
-                if id in diccipa.keys():
-                    print(diccipa[id])
-                    wdposar=diccipa[id]["qmon"]
+            if wd=="" and template.has("nomcoor"):
+                nombusca = template.get("nomcoor").value.strip()
+                nombusca = nombusca.split("(")[0].strip()
+                print("Per",template.get("nomcoor").value.strip(),"busquem nom:", nombusca)
+                if nombusca in diccipa.keys():
+                    print(diccipa[nombusca])
+                    wdposar=diccipa[nombusca]
                     #print(wdposar)
                     template.add("wikidata",wdposar)
                 else:
@@ -133,11 +137,10 @@ def actuallista(pllista,diccipa,pagprova=False):
     text=code
     if text != text0:
         print("Desant",pllista)
-        pllista.put(text,u"Robot actualitza el paràmetre wikidata a partir del codi IPAC")
+        pllista.put(text,u"Robot actualitza el paràmetre wikidata a partir dels noms dels monuments")
     else:
         print("Cap canvi")
     return()
-
 
 
 # el programa comença aquí
@@ -151,11 +154,11 @@ if len(arguments)>0:
     nomllista=" ".join(arguments)
 else:
     print("Manca el nom de la llista de monuments. Agafem opció per defecte")
-    nomllista="Llista de monuments de l'Eixample de Barcelona"
-print ("Important IPAC existents de Wikidata")
-ipacexist=carrega_ipac(ipacdisc)
+    nomllista="Llista de monuments de Sant Pere, Santa Caterina i la Ribera"
+print ("Important monuments existents de Wikidata")
+nomexist=carrega_noms(ipacdisc)
 site=pwb.Site('ca')
 pag = pwb.Page(site, nomllista)
 #pag = pwb.Page(site, "Usuari:PereBot/taller")
 print (pag)
-actuallista(pag, ipacexist)
+actuallista(pag, nomexist)
