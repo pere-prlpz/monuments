@@ -84,7 +84,7 @@ monllista, llistaq, faltenq =monunallista(pag)
 instruccions=""
 informe=""
 for item in llistaq:
-    #print(monllista[item]["nomcoor"].casefold())
+    print(monllista[item]["nomcoor"].casefold())
     if bool(re.match(patro, monllista[item]["nomcoor"].casefold())) & (conjunt != item):
         instruccio1=conjunt+"|"+"P527"+"|"+item
         instruccio2=item+"|"+"P361"+"|"+conjunt

@@ -7,6 +7,7 @@
 # Paràmetres generals:
 # -nocommons: no posa el sitelink de commons (útil quan algun ja està enllaçat a Wikidata i quickstatemens dóna error)
 # -ipacdisc: no importa tots els item amb codi IPAC de Wikidata (P1600) sinó que fa servir la versió guardada el darrer cop.
+# -verbose: més sensible a informar de diferències (menys diferència coordenades, estils amb id diferent que es diuen igual, etc.)
 # Paràmetres per esborrar dades:
 # El programa no esborra ni canvia propietats que ja estiguin a Wikidata excepte amb els següents paràmetres
 # (utilitzeu-los amb prudència):
@@ -315,6 +316,8 @@ posabcil=False
 nocommons=False
 ipacdisc=False
 treucoor=False
+verbose=False
+toldist=.11
 sparql = SPARQLWrapper("https://query.wikidata.org/sparql", agent="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.11 (KHTML, like Gecko) Chrome/23.0.1271.64 Safari/537.11")
 arguments = sys.argv[1:]
 if len(arguments)>0:
@@ -333,6 +336,10 @@ if len(arguments)>0:
     if "-treucoor" in arguments:
         treucoor=True
         arguments.remove("-treucoor")
+    if "-verbose" in arguments:
+        verbose=True
+        toldist=.06
+        arguments.remove("-verbose")
 
 if len(arguments)>0:
     nomllista=" ".join(arguments)
@@ -426,7 +433,7 @@ for item in llistaq+faltenq:
             lonwd = float(monwd[item]["lon"]["value"])
             dist = distgeo(latll, lonll, latwd, lonwd)
             #print(item, " distància llista-WD ", dist, " km")
-            if dist>.110:
+            if dist>toldist:
                     informe = informe + monllista[item]["nomcoor"] + " " + item 
                     informe = informe + " COORDENADES a "+str(round(dist,3))+" km de Wikidata"
                     informe = informe + " ("+str(round(latwd-latll,5))+", "+str(round(lonwd-lonll,5))+")"
@@ -555,7 +562,7 @@ for item in llistaq+faltenq:
         if qestil != "":
             if "estil" in monwd[item].keys():
                 estilwd = monwd[item]["estil"]["value"].replace("http://www.wikidata.org/entity/","")
-                if estilwd != qestil:
+                if estilwd != qestil and (verbose==True or estil0 != monwd[item]["estilLabel"]["value"]):
                     informe = informe + "Estils diferents a " + monllista[item]["nomcoor"] + " " + item + "\n"
                     informe = informe + "Llista: " + estil0 + " (" + qestil+"), "
                     informe = informe + "Wikidata: " + monwd[item]["estilLabel"]["value"] + " (" + estilwd + ")\n"
