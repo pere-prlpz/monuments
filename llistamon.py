@@ -1,8 +1,9 @@
-# Funcions per llegir una llista de monuments i pujar a Wikidata les dades que faltin.
+# Funcions per llegir llistes de monuments i pujar a Wikidata les dades que faltin.
 # Al final genera un informe de diferències i les instruccions pel quickstatements.
 # Fa servir el paràmetre wikidata com a clau i crea items amb les fileres que no en tinguin.
-# La llista se li dóna com a paràmetre extern. Per exemple:
+# La llista o categoria de llistes se li dóna com a paràmetre extern. Per exemple:
 # python llistamon.py "Llista de monuments de Viladrau"
+# python llistamon.py "Llistes de monuments d'Osona"
 # Les cometes són opcionals.
 # Paràmetres generals:
 # -nocommons: no posa el sitelink de commons (útil quan algun ja està enllaçat a Wikidata i quickstatemens dóna error)
@@ -13,20 +14,19 @@
 # (utilitzeu-los amb prudència):
 # -treubcil: treu P1435=BCIL de Wikidata quan a la llista són béns inventariats
 # -posabcil: treu P1435=Inventariat de Wikidata quan a la llista són BCIL
-# -treucoor: canvia les coordenades existents a Wikidata per les de la llista. Només per suposats errors de datum amb esglésies. (en implementació)
+# -treucoor: canvia certes coordenades existents a Wikidata per les de la llista. Només per suposats errors de datum amb esglésies.
 #
 # PER FER:
-# Comprovar si IPAC diferent
 # Comprovar si hi ha descripció i fer-ne
 # Fer etiquetes i descripcions en anglès i més llengües
 # Reconèixer i pujar dos estils junts
 # Buscar diferències llistes/wikidata (en els paràmetres que falten)
-# Treballar per categories de llistes en comptes de llistes individuals
 # Adaptar-lo a plantilles de monumenst diferents de fileraIPA i monuments no catalans
 # Adaptar-lo a patrimoni natural, arbres singulars i rellotges de sol
 # Reconèixer quan sitecommons ja està agafat
 
 import pywikibot as pwb
+from pywikibot import pagegenerators
 from SPARQLWrapper import SPARQLWrapper, JSON
 from collections import Counter
 import math
@@ -85,17 +85,17 @@ def treuparams(plant):
     params[trossos[0]]="=".join(trossos[1:])
   return(params)
 
-def monunallista(llista, filera=pwb.Page(pwb.Site('ca'), "Plantilla:Filera IPA")):
+def monunallista(llista, filera=pwb.Page(pwb.Site('ca'), "Plantilla:Filera IPA"), i0=1, site=pwb.Site('ca')):
 # Retorna diccionari amb els monuments d'una llista de monuments
 # i una llista amb els paràmetres wikidata.
 # Fa servir el paràmetre wikidata com a clau.
 # Els que no en tenen els dóna un índex provisional.
 # Al diccionari sobreescriu els duplicats.
-    plantilles = pag.templatesWithParams()
+    plantilles = llista.templatesWithParams()
     monllista = {}
     monq = []
     monnoq = []
-    ni = 1
+    ni = i0
     for plantilla in plantilles:
       #print(plantilla[0])
       if plantilla[0]==filera:
@@ -110,7 +110,28 @@ def monunallista(llista, filera=pwb.Page(pwb.Site('ca'), "Plantilla:Filera IPA")
         monllista[index]=params
     return(monllista, monq, monnoq)
 
-
+def monllistes(nomorigen, site=pwb.Site('ca')):
+    if re.match("llistes", nomorigen):
+        cat = pwb.Category(site,'Category:'+nomorigen)
+        print(cat)
+        llistes = pagegenerators.CategorizedPageGenerator(cat, recurse=True)
+    else:
+        llistes = [pwb.Page(site, nomorigen)]
+    monllistes = {}
+    monqs = []
+    monnoqs = []
+    n = 1
+    for llista in llistes:
+        print(llista)
+        monllista1, llistaq1, faltenq1 =monunallista(llista, site=site, i0=n)
+        #print(monllista1)#
+        n=n+len(faltenq1)
+        monllistes.update(monllista1)
+        monqs = monqs + llistaq1
+        monnoqs = monnoqs + faltenq1
+    #print(monllistes)#
+    return (monllistes, monqs, monnoqs)
+    
 def get_results(endpoint_url, query):
     user_agent = "PereBot/1.0 (ca:User:Pere_prlpz; prlpzb@gmail.com) Python/%s.%s" % (sys.version_info[0], sys.version_info[1])
     sparql = SPARQLWrapper(endpoint_url, agent=user_agent)
@@ -206,9 +227,10 @@ def carrega_monwd(qitems):
         inicis=[0]
         finals=[n]
     else:
-        mig=round(n/2)
-        inicis=[0, mig]
-        finals=[mig, n]
+        numtrossos=round(n/100)
+        midatros=round(n/numtrossos)
+        inicis=[i*midatros for i in range(0,numtrossos)]
+        finals=inicis[1:]+[n]
     monuments={}
     for i in range(len(inicis)):
         print("carregant lot",i)
@@ -340,18 +362,17 @@ if len(arguments)>0:
         verbose=True
         toldist=.06
         arguments.remove("-verbose")
-
 if len(arguments)>0:
     nomllista=" ".join(arguments)
 else:
     print("Manca el nom de la llista de monuments. Agafem opció per defecte")
     nomllista="Llista de monuments de l'Eixample de Barcelona"
 site=pwb.Site('ca')
-pag = pwb.Page(site, nomllista)
-#pag = pwb.Page(site, "Usuari:PereBot/taller")
-print (pag)
+#pag = pwb.Page(site, nomllista)
+print (nomllista)
 #print(monunallista(pag))
-monllista, llistaq, faltenq =monunallista(pag)
+#monllista, llistaq, faltenq =monunallista(pag)
+monllista, llistaq, faltenq =monllistes(nomllista, site=site)
 #print(llistaq)
 #print(faltenq)
 nh = len(llistaq)
@@ -582,7 +603,6 @@ for item in llistaq+faltenq:
     if not("inst" in monwd[item].keys()):
         instp31,denomino = tria_instancia(monllista[item]["nomcoor"])
         instruccions = instruccions + indexq+"|P31|"+instp31+"||"
-
 print("Instruccions pel quickstatements:")
 print(instruccions,"\n")
 print(informe)
