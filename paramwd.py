@@ -62,47 +62,67 @@ def carrega_ipac(disc=False):
         ipac = get_ipac()
     return (ipac)
 
-def get_monwd(qitems):
-    query = """SELECT DISTINCT ?item ?lon ?lat ?imatge ?prot ?itemLabel ?protLabel ?ipac ?mun ?estil ?estilLabel ?ccat ?commonslink ?estat ?conserva ?inst ?instLabel
+def get_igpcv(desa=True):
+    # monuments existents amb codi igpcv
+    query = """SELECT DISTINCT ?mon ?monLabel ?id
     WHERE {
-      VALUES ?item {"""+" ".join(["wd:"+el for el in qitems])+"""}
-      OPTIONAL {
-        ?item wdt:P625 ?coord.
-      ?item p:P625 ?coordinate .
-      ?coordinate psv:P625 ?coordinate_node .
-      ?coordinate_node wikibase:geoLatitude ?lat .
-      ?coordinate_node wikibase:geoLongitude ?lon .
-    }
-      OPTIONAL {?item wdt:P18 ?imatge}
-      OPTIONAL {?item wdt:P131 ?adm}
-      OPTIONAL {?item wdt:P1435 ?prot}
-      OPTIONAL {?item wdt:P373 ?ccat}
-      OPTIONAL {?item wdt:P1600 ?ipac}
-      OPTIONAL {
-       ?item wdt:P131* ?mun.
-       ?mun wdt:P31 wd:Q33146843.
+      ?mon wdt:P2473 ?id.
+      SERVICE wikibase:label {
+        bd:serviceParam wikibase:language "ca, en".
       }
-      OPTIONAL {?item wdt:P149 ?estil}
-      OPTIONAL {?item wdt:P31 ?inst}
-      OPTIONAL {?commonslink schema:about ?item;
-         schema:isPartOf <https://commons.wikimedia.org/> }
-      OPTIONAL {?item wdt:P17 ?estat}
-      OPTIONAL {?item wdt:P5816 ?conserva}
-    SERVICE wikibase:label {
-    bd:serviceParam wikibase:language "ca,en,oc,fr,es" .
-    }
     }"""
-    #print(query)
     endpoint_url = "https://query.wikidata.org/sparql"
     results = get_results(endpoint_url, query)
-    mons={}
+    dicigpcv={}
     for mon in results["results"]["bindings"]:
-        if "item" in mon.keys():
-            qitem=mon["item"]["value"].replace("http://www.wikidata.org/entity/","")
-            mons[qitem]=mon
-    return(mons)
+        qmon=mon["mon"]["value"].replace("http://www.wikidata.org/entity/","")
+        nommon=mon["monLabel"]["value"]
+        dicigpcv[mon["id"]["value"]]={"qmon":qmon, "nommon":nommon}
+    if desa:
+        fitxer = r"C:\Users\Pere\Documents\perebot\igpcv.pkl"
+        pickle.dump(dicigpcv, open(fitxer, "wb"))
+    return(dicigpcv)
 
-def actuallista(pllista,diccipa,pagprova=False):
+def carrega_igpcv(disc=False):
+    if disc==True:
+        print ("Llegint del disc els igpcv existents a Wikidata")
+        igpcv = pickle.load(open(r"C:\Users\Pere\Documents\perebot\igpcv.pkl", "rb"))
+    else:
+        print ("Important amb una query els igpcv existents a Wikidata")
+        igpcv = get_igpcv()
+    return (igpcv)
+
+def get_bic(desa=True):
+    # monuments existents amb codi igpcv
+    query = """SELECT DISTINCT ?mon ?monLabel ?id
+    WHERE {
+      ?mon wdt:P808 ?id.
+      SERVICE wikibase:label {
+        bd:serviceParam wikibase:language "ca, es, en".
+      }
+    }"""
+    endpoint_url = "https://query.wikidata.org/sparql"
+    results = get_results(endpoint_url, query)
+    dicbic={}
+    for mon in results["results"]["bindings"]:
+        qmon=mon["mon"]["value"].replace("http://www.wikidata.org/entity/","")
+        nommon=mon["monLabel"]["value"]
+        dicbic[mon["id"]["value"]]={"qmon":qmon, "nommon":nommon}
+    if desa:
+        fitxer = r"C:\Users\Pere\Documents\perebot\bic.pkl"
+        pickle.dump(dicbic, open(fitxer, "wb"))
+    return(dicbic)
+
+def carrega_bic(disc=False):
+    if disc==True:
+        print ("Llegint del disc els BIC existents a Wikidata")
+        bic = pickle.load(open(r"C:\Users\Pere\Documents\perebot\bic.pkl", "rb"))
+    else:
+        print ("Important amb una query els bic existents a Wikidata")
+        bic = get_bic()
+    return (bic)
+
+def actuallista(pllista, diccipa, diccigpcv, diccbic, pagprova=False):
     resultat=u""
     origen=pllista.title()
     text=pllista.get()
@@ -112,14 +132,16 @@ def actuallista(pllista,diccipa,pagprova=False):
     #print(t)
     for template in t:
         #print (template.name)
-        if template.name.matches(("Filera IPA")):
+        posat = False
+        if template.name.matches(("filera IPA")) or template.name.matches(("filera BIC Val")):
             if template.has("wikidata"):
                 wd=template.get("wikidata").value.strip()
                 wd=re.sub("<!-- no ([Ww][Dd] )?((auto|amb bot) )?-->", "", wd)
                 #print(wd)
             else:
                 wd=""
-            if wd=="" and template.has("id"):
+        if template.name.matches(("filera IPA")):
+           if wd=="" and template.has("id"):
                 id=template.get("id").value.strip()
                 id=re.sub("IPA-","",id)
                 print("Per",template.get("nomcoor").value.strip(),"busquem id:", id)
@@ -128,12 +150,37 @@ def actuallista(pllista,diccipa,pagprova=False):
                     wdposar=diccipa[id]["qmon"]
                     #print(wdposar)
                     template.add("wikidata",wdposar)
+                    posat = True
                 else:
-                    print("Inexistent")
+                    print("IPAC inexistent")
+        if template.name.matches(("filera BIC Val")):
+           if wd=="" and template.has("bic"):
+                id=template.get("bic").value.strip()
+                print("Per",template.get("nomcoor").value.strip(),"busquem id:", id)
+                if id in diccigpcv.keys():
+                    print(diccigpcv[id])
+                    wdposar=diccigpcv[id]["qmon"]
+                    #print(wdposar)
+                    template.add("wikidata",wdposar)
+                    posat = True
+                else:
+                    print("IGPCV inexistent")
+        if template.name.matches(("filera BIC Val")) and posat==False:
+           if wd=="" and template.has("bic"):
+                id=template.get("bic").value.strip()
+                print("Per",template.get("nomcoor").value.strip(),"busquem id:", id)
+                if id in diccbic.keys():
+                    print(diccbic[id])
+                    wdposar=diccbic[id]["qmon"]
+                    #print(wdposar)
+                    template.add("wikidata",wdposar)
+                    posat = True
+                else:
+                    print("BIC inexistent")
     text=code
     if text != text0:
         print("Desant",pllista)
-        pllista.put(text,u"Robot actualitza el paràmetre wikidata a partir del codi IPAC")
+        pllista.put(text,u"Robot actualitza el paràmetre wikidata a partir del codi IPAC, IGPCV o BIC")
     else:
         print("Cap canvi")
     return()
@@ -141,21 +188,26 @@ def actuallista(pllista,diccipa,pagprova=False):
 
 
 # el programa comença aquí
-ipacdisc=False
+iddisc=False
 arguments = sys.argv[1:]
 if len(arguments)>0:
     if "-ipacdisc" in arguments:
-        ipacdisc=True
+        iddisc=True
         arguments.remove("-ipacdisc")
+    if "-iddisc" in arguments:
+        iddisc=True
+        arguments.remove("-iddisc")
 if len(arguments)>0:
     nomllista=" ".join(arguments)
 else:
     print("Manca el nom de la llista de monuments. Agafem opció per defecte")
     nomllista="Llista de monuments de l'Eixample de Barcelona"
-print ("Important IPAC existents de Wikidata")
-ipacexist=carrega_ipac(ipacdisc)
+print ("Important codis existents de Wikidata")
+ipacexist=carrega_ipac(iddisc)
+igpcvexist=carrega_igpcv(iddisc)
+bicexist=carrega_bic(iddisc)
 site=pwb.Site('ca')
 pag = pwb.Page(site, nomllista)
 #pag = pwb.Page(site, "Usuari:PereBot/taller")
 print (pag)
-actuallista(pag, ipacexist)
+actuallista(pag, ipacexist, igpcvexist, bicexist)
