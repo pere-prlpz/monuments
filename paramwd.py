@@ -1,3 +1,10 @@
+# Busca a Wikidata elements de monuments que falti enllaça en una llista de monuments i actualitza el paràmetre wikidata a la llista.
+# El nom de la llista se li dóna com a paràmetre extern. Per exemple:
+# python paramwd.py "Llista de monuments de Viladrau"
+# Les cometes són opcionals.
+# Paràmetres:
+# -iddisc No carrega els monuments de Wikidata si 
+
 import pywikibot as pwb
 from SPARQLWrapper import SPARQLWrapper, JSON
 import mwparserfromhell
