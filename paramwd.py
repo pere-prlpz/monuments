@@ -3,7 +3,7 @@
 # python paramwd.py "Llista de monuments de Viladrau"
 # Les cometes són opcionals.
 # Paràmetres:
-# -iddisc No carrega els monuments de Wikidata si 
+# -iddisc No carrega els monuments de Wikidata sinó del disc. 
 
 import pywikibot as pwb
 from SPARQLWrapper import SPARQLWrapper, JSON
