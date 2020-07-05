@@ -491,9 +491,9 @@ print("Carregant diccionaris de municipis")
 dicqmun,dicmunq = carrega_municipis()
 # canviem municipis homònims segons la zona (plantilla filera)
 if cataleg=="igpcv":
-    dicmunq.update({"la mata":"Q1901661", "cabanes":"Q1646899"})
+    dicmunq.update({"la mata":"Q1901661", "cabanes":"Q1646899", "figueres":"Q1983382"})
 elif cataleg=="ipac":
-    dicmunq.update({"cabanes":"Q11257"})
+    dicmunq.update({"cabanes":"Q11257", "figueres":"Q6839"})
 #for result in monwd: print(result)
 #print(monwd)
 #print(monwd.keys())
@@ -717,7 +717,7 @@ for item in llistaq+faltenq:
     # codi IGPCV 
     if igpcvllista!="": 
         if not ("igpcv" in monwd[item].keys()) and protllista=="Q23712": # només els BIC (no em fio del codi dels altres)
-            print (monwd[item].keys())
+            #print (monwd[item].keys())
             instruccio = indexq+"|P2473|"+'"'+igpcvllista+'"'#+"|S143|Q199693"
             if cataleg=="igpcv" and "idurl" in monllista[item].keys() and len(monllista[item]["idurl"])>1:
                 instruccio = instruccio + "|S248|Q29787385"

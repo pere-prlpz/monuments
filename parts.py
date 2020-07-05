@@ -3,10 +3,14 @@
 # Paràmetres:
 # - Nom de la llista (entre cometes)
 # - Item del conjunt (no calen cometes)
-# - Patró per identificar els elements del conjunt pel valor de nomcoor. Com que es
-#   fa servir amb match inclou el principi del nom.
+# - Patró per identificar els elements del conjunt pel valor de nomcoor. És un regexp que
+# es fa servir amb re.match i per tand ha d'incloure el principi del nom. Les lletres
+# han de ser en minúscula perquè es compara amb el paràmetre nomcoor amb minúscules.
+# Exemple: 
+# python parts.py "llista de monuments dels Serrans" Q5730144 "(escut|emblema).*de los olmos"
 #
 # PER FER:
+# - Adaptar a més plantilles de filera (ara funciona amb IPAC i BIC Val i probablement amb BIC).
 
 import pywikibot as pwb
 from SPARQLWrapper import SPARQLWrapper, JSON
@@ -25,30 +29,42 @@ def treuparams(plant):
     params[trossos[0]]="=".join(trossos[1:])
   return(params)
 
+def monunallista(llista, i0=1, site=pwb.Site('ca')):
 # Retorna diccionari amb els monuments d'una llista de monuments
 # i una llista amb els paràmetres wikidata.
 # Fa servir el paràmetre wikidata com a clau.
-# Els que no en tenen no els inclou.
+# Els que no en tenen els dóna un índex provisional.
 # Al diccionari sobreescriu els duplicats.
-def monunallista(llista, filera=pwb.Page(pwb.Site('ca'), "Plantilla:Filera IPA")):
-    plantilles = pag.templatesWithParams()
+    fileraIPA=pwb.Page(site, "Plantilla:Filera IPA")
+    fileraBIC=pwb.Page(site, "Plantilla:Filera BIC")
+    fileraBICval=pwb.Page(site, "Plantilla:Filera BIC Val")
+    fileres=[fileraIPA, fileraBIC, fileraBICval]
+    plantilles = llista.templatesWithParams()
     monllista = {}
     monq = []
     monnoq = []
-    ni = "NOWIKIDATA"
+    ni = i0
+    cat0=""
     for plantilla in plantilles:
       #print(plantilla[0])
-      if plantilla[0]==filera:
+      if plantilla[0] in fileres:
         params=treuparams(plantilla)
         if "wikidata" in params.keys() and len(params["wikidata"])>2:
             index=params["wikidata"]
             monq.append(index)
         else:
-            index=ni
-            ni=ni+"1"
+            index="NWD"+str(ni)
+            ni=ni+1
             monnoq.append(index)
         monllista[index]=params
-    return(monllista, monq, monnoq)
+        if cat0=="":
+            if plantilla[0]==fileraIPA:
+                cat0="ipac"
+            elif plantilla[0]==fileraBICval:
+                cat0="igpcv"
+            elif plantilla[0]==fileraBIC:
+                cat0="bic"
+    return(monllista, monq, monnoq, cat0)
 
 # el programa comença aquí
 arguments = sys.argv[1:]
@@ -78,7 +94,7 @@ else:
 site=pwb.Site('ca')
 pag = pwb.Page(site, nomllista)
 print (pag)
-monllista, llistaq, faltenq =monunallista(pag)
+monllista, llistaq, faltenq, cataleg =monunallista(pag)
 #print(llistaq)
 #print(faltenq)
 instruccions=""
