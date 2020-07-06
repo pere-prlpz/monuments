@@ -1,3 +1,5 @@
+#-*- coding: utf-8 -*-
+#
 # Funcions per llegir llistes de monuments i pujar a Wikidata les dades que faltin.
 # Al final genera un informe de diferències i les instruccions pel quickstatements.
 # Fa servir el paràmetre wikidata com a clau i crea items amb les fileres que no en tinguin.
@@ -17,7 +19,8 @@
 # -treubcil: treu P1435=BCIL de Wikidata quan a la llista són béns inventariats
 # -posabcil: treu P1435=Inventariat de Wikidata quan a la llista són BCIL
 # -treucoor: canvia certes coordenades existents a Wikidata per les de la llista. Només per suposats errors de datum amb esglésies.
-# De moment, no crea monuments valencians nous si no són BIC pel dubte de si el codi IGPCV és bo.
+# Abans de pujar un codi IGPCV o de crear l'item d'un monument valencià que no sigui BIC, comprova el codi 
+# amb el web de la Generalitat.
 # Fora de Catalunya i el País Valencià no està provat i és probable que no funcioni o doni resultats inesperats.
 #
 # PER FER:
@@ -151,7 +154,28 @@ def monllistes(nomorigen, site=pwb.Site('ca')):
             cataleg = cat1
     #print(monllistes)#
     return (monllistes, monqs, monnoqs, cat1)
-    
+
+def igpcv_url(idurl):
+    # Cerca el codi IGPCV a partir d'idurl, mirant al web de la Generalitat.
+    # Basat en https://ca.wikipedia.org/wiki/Usuari:Vriullop/igpcv.py
+    codi ="Error idurl"
+    webigpcv = urllib.request.urlopen("http://eduwp.edu.gva.es/patrimonio-cultural/ficha-inmueble.php?id="+idurl)
+    textfitxa = str(webigpcv.read(), 'utf_8')
+    webigpcv.close()
+    nofitxa = re.search('El inmueble no existe', textfitxa)
+    if nofitxa:
+        codi='No existeix'
+    else:
+        codisearch = re.search('Codi</dt>\s+<dd>(?P<aixo>.*)</dd>', textfitxa)
+        if codisearch:
+            codi = codisearch.group('aixo')
+            if not re.search('^[0-9]+$', codi):
+                    codiparts = codi.split(".")
+                    if len(codiparts) == 3:
+                        codisufix = codiparts[2].split("-")
+                        codi = "%02d.%02d.%03d-%03d" % (int(codiparts[0]), int(codiparts[1]), int(codisufix[0]), int(codisufix[1]))
+    return(codi)
+ 
 def get_results(endpoint_url, query):
     user_agent = "PereBot/1.0 (ca:User:Pere_prlpz; prlpzb@gmail.com) Python/%s.%s" % (sys.version_info[0], sys.version_info[1])
     sparql = SPARQLWrapper(endpoint_url, agent=user_agent)
@@ -491,9 +515,10 @@ print("Carregant diccionaris de municipis")
 dicqmun,dicmunq = carrega_municipis()
 # canviem municipis homònims segons la zona (plantilla filera)
 if cataleg=="igpcv":
-    dicmunq.update({"la mata":"Q1901661", "cabanes":"Q1646899", "figueres":"Q1983382"})
+    dicmunq.update({"la mata":"Q1901661", "cabanes":"Q1646899", 
+    "figueres":"Q1983382", "torrent":"Q161945"})
 elif cataleg=="ipac":
-    dicmunq.update({"cabanes":"Q11257", "figueres":"Q6839"})
+    dicmunq.update({"cabanes":"Q11257", "figueres":"Q6839", "torrent":"Q13572"})
 #for result in monwd: print(result)
 #print(monwd)
 #print(monwd.keys())
@@ -537,6 +562,7 @@ instruccions=""
 informe=""
 for item in llistaq+faltenq:
     #print(item)
+    igpcv_web = "No comprovat"
     if item[0:3]=="NWD":
         if "id" in monllista[item].keys() and cataleg=="ipac":
             ipaclau= monllista[item]["id"].replace("IPA-","")
@@ -558,11 +584,17 @@ for item in llistaq+faltenq:
                 informe += monllista[item]["nomcoor"] + " BIC DUPLICAT de "
                 informe += bicexist[bicclau]["qmon"]+ " " + bicexist[bicclau]["nommon"] + "\n"
                 continue
-        #no crear monuments valencians si no són BIC (perquè no sé quins IGPCV són bons)
+        #comprovar els codis dels monuments valencians que no siguin BIC abans de pujar-los
         if cataleg=="igpcv":
             if not monllista[item]["prot"]=="BIC":
-                print ("No es pujarà", monllista[item]["nomcoor"], "pel dubte de si el codi IGPCV", monllista[item]["bic"], "és bo")
-                continue
+                print(monllista[item]["nomcoor"])
+                igpcv_web = igpcv_url(monllista[item]["idurl"])
+                print("Codi IGPCV. Llista:", monllista[item]["bic"], "Generalitat:", igpcv_web)
+                if igpcv_web==monllista[item]["bic"]:
+                    print("Codis iguals. Es crearà l'element.")
+                else:
+                    print ("Codis diferents. No es crea l'element.")
+                    continue
         if nocrea==True:
             continue
         indexq="LAST"
@@ -725,9 +757,26 @@ for item in llistaq+faltenq:
                 instruccio = instruccio +str(monllista[item]["idurl"])+'&lang=ca"'
             instruccions = instruccions + instruccio +"||"
         elif "igpcv" in monwd[item].keys() and igpcvllista != monwd[item]["igpcv"]["value"]:
+            if igpcv_web == "No comprovat":
+                igpcv_web = igpcv_url(monllista[item]["idurl"])
             informe = informe + "IGPCV DIFERENT a " + monllista[item]["nomcoor"] + " " + item + "\n"
             informe = informe + "Llista: " + igpcvllista
-            informe = informe + ", Wikidata: "+ monwd[item]["igpcv"]["value"] + "\n"            
+            informe = informe + ", Wikidata: "+ monwd[item]["igpcv"]["value"]
+            informe = informe + ", Patrimoni: "+ igpcv_web + "\n"
+        elif not("igpcv" in monwd[item].keys()) and cataleg=="igpcv" and "idurl" in monllista[item].keys(): #no BIC, comprovar codi)
+            if igpcv_web == "No comprovat":
+                igpcv_web = igpcv_url(monllista[item]["idurl"])
+            if igpcv_web==monllista[item]["bic"]:
+                instruccio = indexq+"|P2473|"+'"'+igpcvllista+'"'#+"|S143|Q199693"
+                if cataleg=="igpcv" and "idurl" in monllista[item].keys() and len(monllista[item]["idurl"])>1:
+                    instruccio = instruccio + "|S248|Q29787385"
+                    instruccio = instruccio + '|S854|"http://eduwp.edu.gva.es/patrimonio-cultural/ficha-inmueble.php?id='
+                    instruccio = instruccio +str(monllista[item]["idurl"])+'&lang=ca"'
+                instruccions = instruccions + instruccio +"||"   
+            else:
+                informe = informe + "IGPCV diferents a la llista i a Patrimoni a " + monllista[item]["nomcoor"] + " " + item + "\n"
+                informe = informe + "Llista: " + monllista[item]["bic"] + " "
+                informe = informe + ", Web de Patrimoni: " + igpcv_web + "\n"
     # municipi
     if "municipi" in monllista[item].keys() and len(monllista[item]["municipi"])>1: 
         nomunallista = monllista[item]["municipi"].casefold()
