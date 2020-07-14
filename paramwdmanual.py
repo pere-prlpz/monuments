@@ -26,7 +26,7 @@ def actuallistaman(pllista):
             else:
                 wd=""
             if wd=="" and template.has("prot"):
-                if re.match("BRL", template.get("prot").value.strip()):
+                if re.match("BRL|BIC", template.get("prot").value.strip()):
                     print (template.get("nomcoor").value.strip())
                     entrada = input("Wikidata: ")
                     if re.match("[Qq].+", entrada):

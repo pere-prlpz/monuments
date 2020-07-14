@@ -203,10 +203,12 @@ def get_municipis(desa=True):
     # l'invers (label a item) en minúscules (casefold)
     # Fa servir també noms oficials i alies si no dupliquen un label.
     # Ara municipis d'Espanya.
-    query = """SELECT DISTINCT ?mun ?munLabel ?munAltLabel ?oficial
+    query = """SELECT DISTINCT ?mun ?munLabel ?oficial ?alies
     WHERE {
         ?mun wdt:P31/wdt:P279* wd:Q2074737.
         OPTIONAL {?mun wdt:P1448 ?oficial}
+        OPTIONAL {?mun skos:altLabel ?alies.
+                 FILTER(lang(?alies)="ca")}
         SERVICE wikibase:label {
         bd:serviceParam wikibase:language "ca" .
         }
@@ -226,8 +228,8 @@ def get_municipis(desa=True):
             nomoficial=mon["oficial"]["value"]
             if not(nomoficial in dicinvers.keys()): 
                 dicinvers[nomoficial.casefold()]=qmun
-        if "munAltLabel" in mon.keys():
-            alies=mon["munAltLabel"]["value"]
+        if "alies" in mon.keys():
+            alies=mon["alies"]["value"]
             if len(alies)>1 and not(alies.casefold() in dicinvers.keys()):
                 dicinvers[alies.casefold()]=qmun           
     if desa:
@@ -422,6 +424,10 @@ def tria_instancia(nom0):
         return("Q4989906", "monument")
     elif re.match("(escultur|estàtu)(a|es)", nom):
         return("Q860861", "escultura")
+    elif re.match("retaules? ceràmic", nom):
+        return("Q97072190", "retaule ceràmic")
+    elif re.match("calvari", nom):
+        return("Q11331347", "calvari")
     elif re.match("pous? de (gel|glaç|neu)", nom):
         return("Q3666499", "pou de gel")
     elif re.match("(font|brollador)s? ", nom):
@@ -526,9 +532,11 @@ diccprot={}
 diccprot["BCIN"]="Q1019352"
 diccprot["BIC"]="Q23712"
 diccprot["BIC etnològic"]="Q23712"
+diccprot["BIC etnològics"]="Q23712"
 diccprot["BCIL"]="Q11910250"
 diccprot["BRL"]="Q11910247"
 diccprot["BRL etnològic"]="Q11910247"
+diccprot["BRL etnològics"]="Q11910247"
 diccestil={}
 diccestil["romànic"]="Q46261"
 diccestil["gòtic"]="Q176483"
@@ -560,6 +568,9 @@ diccestil["racionalista"]="Q2535546"
 diccestil["arquitectura del ferro"]="Q900557"
 instruccions=""
 informe=""
+if cataleg=="igpcv":
+    diccestil["modernisme"]="Q47015062" #modernisme valencià
+    diccestil["modernista"]="Q47015062"
 for item in llistaq+faltenq:
     #print(item)
     igpcv_web = "No comprovat"
