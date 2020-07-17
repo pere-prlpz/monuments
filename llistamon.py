@@ -9,6 +9,7 @@
 # Les cometes són opcionals.
 # Paràmetres generals:
 # -nocrea: no crea items nous a Wikidata 
+# -creatot: crea tots els elements que pugui, incloent els que no tinguin un codi vàlid per Wikidata (EN IMPLEMENTACIÓ)
 # -nocommons: no posa el sitelink de commons (útil quan algun ja està enllaçat a Wikidata i quickstatemens dóna error)
 # -iddisc: no importa tots els item amb codi IPAC de Wikidata (P1600) o IGPCV sinó que fa servir la versió guardada el darrer cop.
 # -verbose: més sensible a informar de diferències (menys diferència coordenades, estils amb id diferent que es diuen igual, etc.)
@@ -446,6 +447,16 @@ def tria_instancia(nom0):
         return("Q108325", "capella")
     elif re.match("hipogeu", nom):
         return("Q665247", "hipogeu")
+    elif re.match("necròpolis", nom):
+        return("Q200141", "necròpolis")
+    elif re.match("tomb(a|es) ", nom):
+        return("Q381885", "tomba")
+    elif re.match("cov(a|es) ", nom):
+        return("Q35509", "cova")
+    elif re.match("(balm(a|es)|abric) ", nom):
+        return("Q1149405", "balma")
+    elif re.match("pedrer(a|es) ", nom):
+        return("Q188040", "pedrera")
     elif re.match("ponts? |viaducte", nom):
         return("Q12280", "pont")
     elif re.match("aqüeducte", nom):
@@ -494,6 +505,7 @@ treucoor=False
 verbose=False
 verbose1=False
 nocrea=False
+creatot=False
 mostra=False
 toldist=.11
 sparql = SPARQLWrapper("https://query.wikidata.org/sparql", agent="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.11 (KHTML, like Gecko) Chrome/23.0.1271.64 Safari/537.11")
@@ -520,6 +532,9 @@ if len(arguments)>0:
     if "-nocrea" in arguments:
         nocrea=True
         arguments.remove("-nocrea")
+    if "-creatot" in arguments:
+        creatot=True
+        arguments.remove("-creatot")
     if "-verbose" in arguments:
         verbose=True
         toldist=.06
@@ -542,7 +557,7 @@ print("Catàleg:",cataleg)
 nh = len(llistaq)
 nf = len(faltenq)
 print(nh+nf, " monuments: ", nh, " amb Wikidata i ", nf, " per crear")
-if len(faltenq)>0:
+if len(faltenq)>0 and nocrea==False:
     #print ("Important codis existents a Wikidata")
     ipacexist=carrega_ipac(iddisc or cataleg!="ipac")
     igpcvexist=carrega_igpcv(iddisc or cataleg!="igpcv")
@@ -612,6 +627,8 @@ for item in llistaq+faltenq:
     #print(item)
     igpcv_web = "No comprovat"
     if item[0:3]=="NWD":
+        if nocrea==True:
+            continue
         if "id" in monllista[item].keys() and cataleg=="ipac":
             ipaclau= monllista[item]["id"].replace("IPA-","")
             if ipaclau in ipacexist.keys():
@@ -638,8 +655,6 @@ for item in llistaq+faltenq:
                 informe += monllista[item]["nomcoor"] + " SIPCA DUPLICAT de "
                 informe += sipcaexist[bicclau]["qmon"]+ " " + sipcaexist[bicclau]["nommon"] + "\n"
                 continue
-        if nocrea==True:
-            continue
         #comprovar els codis dels monuments valencians que no siguin BIC abans de pujar-los
         if cataleg=="igpcv":
             if not monllista[item]["prot"]=="BIC":
@@ -652,7 +667,7 @@ for item in llistaq+faltenq:
                     print ("Codis diferents. No es crea l'element.")
                     continue
         #comprovar que els BIC tinguin codi BIC (pensat pels monuments menorquins)
-        if cataleg=="bic" and bool(re.match("BIC", monllista[item]["prot"])):
+        if creatot==False and cataleg=="bic" and bool(re.match("BIC", monllista[item]["prot"])):
             if not bool(re.match("RI-", monllista[item]["bic"])):
                 print(monllista[item]["nomcoor"])
                 print ("Codi de la llista:", monllista[item]["bic"], "no és BIC. No es crea l'element.")
