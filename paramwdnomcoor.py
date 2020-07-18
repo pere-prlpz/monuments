@@ -1,5 +1,15 @@
 # Actualitza les llistes com com paramwd.py
-# però és pels monuments de les llistes de Barcelona que no tenen codi IPAC
+# a partir del nom (paràmetre nomcoor de la llista) buscant-lo als àlies en català.
+# Funciona amb elements acabats de crear amb llistamon.py, que posa nomcoor com
+# a àlies.
+# Pensat pels monuments menorquins i valencians que no tenen un codi
+# (o no tenen un codi prou fiable com per pujar-lo a Wikidata).
+# Substitueix paramwdnom.py que feia servir el nom i estava pensar per Barcelona.
+# Se li ha d'indicar la llista i el nom.
+# Exemple:
+# python paramwdnomcoor.py llista de monuments de Ferreries -menorca
+# Les cometes són opcionals.
+# -menorca: busca entre els monuments de Menorca
 
 import pywikibot as pwb
 from SPARQLWrapper import SPARQLWrapper, JSON
@@ -19,20 +29,16 @@ def get_results(endpoint_url, query):
     sparql.setReturnFormat(JSON)
     return sparql.query().convert()
 
-def get_alies(lloc="menorca"):
+def get_alies(qlloc, verbose=False):
     # llocs de Wikidata situats al destí
-    diccllocs = {"menorca":"Q52636"}
-    if lloc in diccllocs:
-        qlloc=diccllocs[lloc]
-    else:
-        print("Lloc no previst")
-        return({})
     query = """SELECT DISTINCT ?cosa ?alies
     WHERE {
         ?cosa wdt:P131* wd:"""+qlloc+""".
         ?cosa skos:altLabel ?alies.
         FILTER(lang(?alies)="ca")
     }"""
+    if verbose:
+        print(query)
     endpoint_url = "https://query.wikidata.org/sparql"
     results = get_results(endpoint_url, query)
     dicipac={}
@@ -76,19 +82,27 @@ def actuallista(pllista,diccipa,pagprova=False):
     return()
 
 # el programa comença aquí
-lloc="menorca"
 arguments = sys.argv[1:]
+diccllocs = {"menorca":"Q52636", "pval":"Q5720"}
+lloc = ""
 if len(arguments)>0:
-    if "-menorca" in arguments:
-        lloc="menorca"
-        arguments.remove("-menorca")
+    for unlloc in diccllocs.keys():
+        if "-"+unlloc in arguments:
+            lloc=diccllocs[unlloc]
+            arguments.remove("-"+unlloc)
+if lloc=="":
+    lloc=diccllocs["pval"]
+verbose=False
+if "-verbose" in arguments:
+    verbose=True
+    arguments.remove("-verbose")
 if len(arguments)>0:
     nomllista=" ".join(arguments)
 else:
     print("Manca el nom de la llista de monuments. Agafem opció per defecte")
     nomllista="Llista de monuments des Castell"
 print ("Important monuments existents de Wikidata")
-dicnoms = get_alies(lloc)
+dicnoms = get_alies(lloc, verbose=verbose)
 site=pwb.Site('ca')
 pag = pwb.Page(site, nomllista)
 print (pag)

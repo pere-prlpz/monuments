@@ -449,6 +449,8 @@ def tria_instancia(nom0):
         return("Q665247", "hipogeu")
     elif re.match("necròpolis", nom):
         return("Q200141", "necròpolis")
+    elif re.match("cement[ei]ri", nom):
+        return("Q39614", "cementiri")
     elif re.match("tomb(a|es) ", nom):
         return("Q381885", "tomba")
     elif re.match("cov(a|es) ", nom):
@@ -473,7 +475,7 @@ def tria_instancia(nom0):
         return("Q97072190", "retaule ceràmic")
     elif re.match("calvari", nom):
         return("Q11331347", "calvari")
-    elif re.match("pous? de (gel|glaç|neu)", nom):
+    elif re.match("(pous? de (gel|glaç|neu)|never(a|es) )", nom):
         return("Q3666499", "pou de gel")
     elif re.match("(font|brollador)s? ", nom):
         return("Q483453", "font")
@@ -588,6 +590,7 @@ diccprot["BCIL"]="Q11910250"
 diccprot["BRL"]="Q11910247"
 diccprot["BRL etnològic"]="Q11910247"
 diccprot["BRL etnològics"]="Q11910247"
+diccprot["BIE"]="Q41477381"
 diccprot["BC"]="Q26934132"
 diccestil={}
 diccestil["romànic"]="Q46261"
@@ -626,6 +629,7 @@ if cataleg=="igpcv":
 for item in llistaq+faltenq:
     #print(item)
     igpcv_web = "No comprovat"
+    puja_igpcv = True
     if item[0:3]=="NWD":
         if nocrea==True:
             continue
@@ -664,8 +668,12 @@ for item in llistaq+faltenq:
                 if igpcv_web==monllista[item]["bic"]:
                     print("Codis iguals. Es crearà l'element.")
                 else:
-                    print ("Codis diferents. No es crea l'element.")
-                    continue
+                    if creatot:
+                        print ("Codis diferents. No es pujarà el codi.")
+                        puja_igpcv = False
+                    else:
+                        print ("Codis diferents. No es crea l'element.")
+                        continue
         #comprovar que els BIC tinguin codi BIC (pensat pels monuments menorquins)
         if creatot==False and cataleg=="bic" and bool(re.match("BIC", monllista[item]["prot"])):
             if not bool(re.match("RI-", monllista[item]["bic"])):
@@ -731,7 +739,7 @@ for item in llistaq+faltenq:
         if "prot" in monllista[item].keys() and monllista[item]["prot"]!="":
             if monllista[item]["prot"] in diccprot.keys():
                  protllista = diccprot[monllista[item]["prot"]]
-            elif protllista=="" and not(bool(re.match("RI-5", monllista[item]["bic"]))):
+            elif protllista=="" and (not("bic" in monllista[item].keys()) or not(bool(re.match("RI-5", monllista[item]["bic"])))):
                 print (monllista[item]["nomcoor"], " Protecció no prevista:", monllista[item]["prot"])
                 informe = informe + monllista[item]["nomcoor"]+" Protecció no prevista:"
                 informe = informe + " '"+monllista[item]["prot"] +"'\n"
