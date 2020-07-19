@@ -9,7 +9,7 @@
 # Les cometes són opcionals.
 # Paràmetres generals:
 # -nocrea: no crea items nous a Wikidata 
-# -creatot: crea tots els elements que pugui, incloent els que no tinguin un codi vàlid per Wikidata (EN IMPLEMENTACIÓ)
+# -creatot: crea tots els elements que pugui, incloent els que no tinguin un codi vàlid per Wikidata
 # -nocommons: no posa el sitelink de commons (útil quan algun ja està enllaçat a Wikidata i quickstatemens dóna error)
 # -iddisc: no importa tots els item amb codi IPAC de Wikidata (P1600) o IGPCV sinó que fa servir la versió guardada el darrer cop.
 # -verbose: més sensible a informar de diferències (menys diferència coordenades, estils amb id diferent que es diuen igual, etc.)
@@ -20,19 +20,15 @@
 # -treubcil: treu P1435=BCIL de Wikidata quan a la llista són béns inventariats
 # -posabcil: treu P1435=Inventariat de Wikidata quan a la llista són BCIL
 # -treucoor: canvia certes coordenades existents a Wikidata per les de la llista. Només per suposats errors de datum amb esglésies.
-# Abans de pujar un codi IGPCV o de crear l'item d'un monument valencià que no sigui BIC, comprova el codi 
-# amb el web de la Generalitat.
-# Fora de Catalunya i el País Valencià no està provat i és probable que no funcioni o doni resultats inesperats.
+# Abans de pujar un codi IGPCV comprova el codi amb el web de la Generalitat.
+# De moment funciona amb les llistes catalanes del sud, valencianes, balears i aragoneses.
 #
 # PER FER:
-# Trobar com posar un codi raonable als BRL i altres monuments valencians no BIC
-# Comprovar si hi ha descripció i fer-ne
-# Fer etiquetes i descripcions en anglès i més llengües
+# Adaptar-lo a plantilles de monuments de més llocs.
 # Reconèixer i pujar dos estils junts
-# Buscar diferències llistes/wikidata (en els paràmetres que falten)
-# Adaptar-lo a plantilles de monumenst diferents de fileraIPA i monuments no catalans
 # Adaptar-lo a patrimoni natural, arbres singulars i rellotges de sol
 # Reconèixer quan sitecommons ja està agafat
+# Refer funcions trobar codis existents, que són totes iguals
 
 import pywikibot as pwb
 from pywikibot import pagegenerators
@@ -104,7 +100,8 @@ def monunallista(llista, i0=1, site=pwb.Site('ca')):
     fileraIPA=pwb.Page(site, "Plantilla:Filera IPA")
     fileraBIC=pwb.Page(site, "Plantilla:Filera BIC")
     fileraBICval=pwb.Page(site, "Plantilla:Filera BIC Val")
-    fileres=[fileraIPA, fileraBIC, fileraBICval]
+    fileraBICand=pwb.Page(site, "Plantilla:Filera BIC And")
+    fileres=[fileraIPA, fileraBIC, fileraBICval,fileraBICand]
     plantilles = llista.templatesWithParams()
     monllista = {}
     monq = []
@@ -130,6 +127,8 @@ def monunallista(llista, i0=1, site=pwb.Site('ca')):
                 cat0="igpcv"
             elif plantilla[0]==fileraBIC:
                 cat0="bic"
+            elif plantilla[0]==fileraBICand:
+                cat0="and"
     return(monllista, monq, monnoq, cat0)
 
 def monllistes(nomorigen, site=pwb.Site('ca')):
@@ -205,12 +204,28 @@ def get_municipis(desa=True):
     # l'invers (label a item) en minúscules (casefold)
     # Fa servir també noms oficials i alies si no dupliquen un label.
     # Ara municipis d'Espanya.
-    query = """SELECT DISTINCT ?mun ?munLabel ?oficial ?alies
-    WHERE {
-        ?mun wdt:P31/wdt:P279* wd:Q2074737.
+    query = """#Municipis del nostre, amb els noms alternatius separats
+    SELECT DISTINCT ?mun ?munLabel ?oficial ?alias
+        WHERE {
+    VALUES ?tipus {wd:Q484170
+     wd:Q2989454
+     wd:Q20899166
+     wd:Q22927548
+     wd:Q22927616
+    # wd:Q84598477
+    # wd:Q84599126
+     wd:Q2074737
+    # wd:Q2276925
+    # wd:Q3284867
+    # wd:Q5055981
+     wd:Q33146843
+    # wd:Q55863584
+     wd:Q61763947
+     wd:Q24279}
+      ?mun wdt:P31 ?tipus.
         OPTIONAL {?mun wdt:P1448 ?oficial}
-        OPTIONAL {?mun skos:altLabel ?alies.
-                 FILTER(lang(?alies)="ca")}
+        OPTIONAL {?mun skos:altLabel ?alias.
+                 FILTER(lang(?alias)="ca")}
         SERVICE wikibase:label {
         bd:serviceParam wikibase:language "ca" .
         }
@@ -359,7 +374,7 @@ def carrega_bic(disc=False):
         bic = get_bic()
     return (bic)
 
-def carrega_monwd(qitems, mostra=False):
+def carrega_monwd(qitems, qtipusmun="Q2074737", mostra=False):
     n = len(qitems)
     print(n,"elements per carregar")
     if n<150:
@@ -373,11 +388,11 @@ def carrega_monwd(qitems, mostra=False):
     monuments={}
     for i in range(len(inicis)):
         print("carregant lot",i)
-        monuments.update(get_monwd(qitems[inicis[i]:finals[i]], mostra))
+        monuments.update(get_monwd(qitems[inicis[i]:finals[i]], qtipusmun, mostra))
     print(len(monuments), "monuments llegits en", len(inicis),"fases")
     return(monuments)
 
-def get_monwd(qitems, mostra=False):
+def get_monwd(qitems, qtipusmun="Q2074737", mostra=False):
     # Llegeix amb una query dades d'una llista de monuments a Wikidata.
     # mun llegeix municipi d'Espanya
     #print(qitems)
@@ -403,7 +418,7 @@ def get_monwd(qitems, mostra=False):
       OPTIONAL {?item wdt:P3580 ?sipca}
       OPTIONAL {
        ?item wdt:P131* ?mun.
-       ?mun wdt:P31/wdt:P279* wd:Q2074737.
+       ?mun wdt:P31/wdt:P279* wd:"""+qtipusmun+""".
       }
       OPTIONAL {?item wdt:P149 ?estil}
       OPTIONAL {?item wdt:P31 ?inst}
@@ -565,8 +580,16 @@ if len(faltenq)>0 and nocrea==False:
     igpcvexist=carrega_igpcv(iddisc or cataleg!="igpcv")
     bicexist=carrega_bic(iddisc or (cataleg!="igpcv" and cataleg!="bic"))
     sipcaexist=carrega_sipca(iddisc or cataleg!="bic")
+diccestat = {"and":"Q228", "mh":"Q142", "sard":"Q38"}
+dicctipusmun = {"and":"Q24279", "mh":"Q484170", "sard":"Q747074"}
+if cataleg in diccestat:
+    qestat=diccestat[cataleg]
+    qtipusmun=dicctipusmun[cataleg]
+else:
+    qestat="Q29"
+    qtipusmun="Q2074737"
 print("Important monuments de Wikidata")
-monwd=carrega_monwd(llistaq, mostra=verbose1)
+monwd=carrega_monwd(llistaq, qtipusmun, mostra=verbose1)
 for id in faltenq:
     monwd[id]={}
 print("Carregant diccionaris de municipis")
@@ -581,17 +604,20 @@ dicmunq["menorca"]="Q52636"
 #for result in monwd: print(result)
 #print(monwd)
 #print(monwd.keys())
-diccprot={}
-diccprot["BCIN"]="Q1019352"
-diccprot["BIC"]="Q23712"
-diccprot["BIC etnològic"]="Q23712"
-diccprot["BIC etnològics"]="Q23712"
-diccprot["BCIL"]="Q11910250"
-diccprot["BRL"]="Q11910247"
-diccprot["BRL etnològic"]="Q11910247"
-diccprot["BRL etnològics"]="Q11910247"
-diccprot["BIE"]="Q41477381"
-diccprot["BC"]="Q26934132"
+if cataleg == "and":
+    diccprot = {"BIC":"Q5004973", "BI":"Q21095081"}
+else:
+    diccprot={}
+    diccprot["BCIN"]="Q1019352"
+    diccprot["BIC"]="Q23712"
+    diccprot["BIC etnològic"]="Q23712"
+    diccprot["BIC etnològics"]="Q23712"
+    diccprot["BCIL"]="Q11910250"
+    diccprot["BRL"]="Q11910247"
+    diccprot["BRL etnològic"]="Q11910247"
+    diccprot["BRL etnològics"]="Q11910247"
+    diccprot["BIE"]="Q41477381"
+    diccprot["BC"]="Q26934132"
 diccestil={}
 diccestil["romànic"]="Q46261"
 diccestil["gòtic"]="Q176483"
@@ -614,6 +640,7 @@ diccestil["modernista"]="Q1122677"
 diccestil["arquitectura popular"]="Q930314"
 diccestil["popular"]="Q930314"
 diccestil["obra popular"]="Q930314"
+diccestil["arquitectura religiosa d'època barroca"]="Q930314" #andorra
 diccestil["noucentisme"]="Q1580216"
 diccestil["noucentista"]="Q1580216"
 diccestil["eclecticisme"]="Q2479493"
@@ -936,7 +963,7 @@ for item in llistaq+faltenq:
                 instruccio = indexq+"|P5816|Q56556915|S143|Q199693"
                 instruccions = instruccions + instruccio +"||"
     if not("estat" in monwd[item].keys()):
-        instruccions = instruccions + indexq+"|P17|Q29||"
+        instruccions = instruccions + indexq+"|P17|"+qestat+"||"
     if not("inst" in monwd[item].keys()):
         instp31,denomino = tria_instancia(monllista[item]["nomcoor"])
         instruccions = instruccions + indexq+"|P31|"+instp31+"||"

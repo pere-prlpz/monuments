@@ -31,12 +31,21 @@ def get_results(endpoint_url, query):
 
 def get_alies(qlloc, verbose=False):
     # llocs de Wikidata situats al destí
-    query = """SELECT DISTINCT ?cosa ?alies
-    WHERE {
-        ?cosa wdt:P131* wd:"""+qlloc+""".
-        ?cosa skos:altLabel ?alies.
-        FILTER(lang(?alies)="ca")
-    }"""
+    estats = ["Q228", "Q29"]
+    if qlloc in estats:
+        query="""SELECT DISTINCT ?cosa ?alies
+        WHERE {
+            ?cosa wdt:P17 wd:"""+qlloc+""".
+            ?cosa skos:altLabel ?alies.
+            FILTER(lang(?alies)="ca")
+        }"""
+    else:
+        query = """SELECT DISTINCT ?cosa ?alies
+        WHERE {
+            ?cosa wdt:P131* wd:"""+qlloc+""".
+            ?cosa skos:altLabel ?alies.
+            FILTER(lang(?alies)="ca")
+        }"""
     if verbose:
         print(query)
     endpoint_url = "https://query.wikidata.org/sparql"
@@ -83,7 +92,7 @@ def actuallista(pllista,diccipa,pagprova=False):
 
 # el programa comença aquí
 arguments = sys.argv[1:]
-diccllocs = {"menorca":"Q52636", "pval":"Q5720"}
+diccllocs = {"menorca":"Q52636", "pval":"Q5720", "and":"Q228"}
 lloc = ""
 if len(arguments)>0:
     for unlloc in diccllocs.keys():
