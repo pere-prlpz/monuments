@@ -21,14 +21,17 @@
 # -posabcil: treu P1435=Inventariat de Wikidata quan a la llista són BCIL
 # -treucoor: canvia certes coordenades existents a Wikidata per les de la llista. Només per suposats errors de datum amb esglésies.
 # Abans de pujar un codi IGPCV comprova el codi amb el web de la Generalitat.
-# De moment funciona amb les llistes catalanes del sud, valencianes, balears i aragoneses.
 #
 # PER FER:
-# Adaptar-lo a plantilles de monuments de més llocs.
-# Reconèixer i pujar dos estils junts
+# Millorar la desambiguació de municipis fent servir el parèntesis (bàsicament pels francesos).
+# Adaptar-lo a plantilles de monuments l'Alguer.
 # Adaptar-lo a patrimoni natural, arbres singulars i rellotges de sol
 # Reconèixer quan sitecommons ja està agafat
+# Reconèixer i pujar dos estils junts
 # Refer funcions trobar codis existents, que són totes iguals
+#
+# MANCANCES CONEGUDES:
+# Pot donar avís de valors diferents quan a Wikidata o a la llista hi ha dos valors (o n'agafa un o no l'entén).
 
 import pywikibot as pwb
 from pywikibot import pagegenerators
@@ -43,19 +46,22 @@ import time
 
 def al(sn):
     #print(sn)
-    sn1=sn[:]
-    #print(sn,sn1)
+    sn0=sn[:]
+    sn0=sn0.strip(" []")
+    sn0=re.sub("[\[\]]","",sn0)
+    sn1=sn0[:]
+    #print(sn,sn0,sn1)
     sn1 = re.sub("^[Ee]l ","al ",sn1)
     sn1 = re.sub("^[Ee]s ","as ",sn1) #balear
-    #print(sn,sn1)
+    #print(sn,sn0,sn1)
     sn1 = re.sub("^[Ee]ls ","als ",sn1)
     sn1 = re.sub("^L'","a l'",sn1)
     sn1 = re.sub("^La ","a la ",sn1)
     sn1 = re.sub("^Les ","a les ",sn1)
     #print(sn,sn1)
-    if sn1==sn:
-        sn1="a "+sn
-    #print(sn,sn1)
+    if sn1==sn0:
+        sn1="a "+sn0
+    #print(sn,sn0,sn1)
     return sn1
 
 def de(sn):
@@ -101,7 +107,8 @@ def monunallista(llista, i0=1, site=pwb.Site('ca')):
     fileraBIC=pwb.Page(site, "Plantilla:Filera BIC")
     fileraBICval=pwb.Page(site, "Plantilla:Filera BIC Val")
     fileraBICand=pwb.Page(site, "Plantilla:Filera BIC And")
-    fileres=[fileraIPA, fileraBIC, fileraBICval,fileraBICand]
+    fileraMH=pwb.Page(site, "Plantilla:Filera MH")
+    fileres=[fileraIPA, fileraBIC, fileraBICval, fileraBICand, fileraMH]
     plantilles = llista.templatesWithParams()
     monllista = {}
     monq = []
@@ -129,6 +136,8 @@ def monunallista(llista, i0=1, site=pwb.Site('ca')):
                 cat0="bic"
             elif plantilla[0]==fileraBICand:
                 cat0="and"
+            elif plantilla[0]==fileraMH:
+                cat0="mh"
     return(monllista, monq, monnoq, cat0)
 
 def monllistes(nomorigen, site=pwb.Site('ca')):
@@ -204,7 +213,7 @@ def get_municipis(desa=True):
     # l'invers (label a item) en minúscules (casefold)
     # Fa servir també noms oficials i alies si no dupliquen un label.
     # Ara municipis d'Espanya.
-    query = """#Municipis del nostre, amb els noms alternatius separats
+    query = """#Municipis del nostre entorn, amb els noms alternatius separats
     SELECT DISTINCT ?mun ?munLabel ?oficial ?alias
         WHERE {
     VALUES ?tipus {wd:Q484170
@@ -243,10 +252,10 @@ def get_municipis(desa=True):
         dicinvers[nommun.casefold()]=qmun
         if "oficial" in mon.keys():
             nomoficial=mon["oficial"]["value"]
-            if not(nomoficial in dicinvers.keys()): 
+            if not(nomoficial.casefold() in dicinvers.keys()): 
                 dicinvers[nomoficial.casefold()]=qmun
-        if "alies" in mon.keys():
-            alies=mon["alies"]["value"]
+        if "alias" in mon.keys():
+            alies=mon["alias"]["value"]
             if len(alies)>1 and not(alies.casefold() in dicinvers.keys()):
                 dicinvers[alies.casefold()]=qmun           
     if desa:
@@ -374,6 +383,36 @@ def carrega_bic(disc=False):
         bic = get_bic()
     return (bic)
 
+def get_merimee(desa=True):
+    # monuments existents amb codi merimée
+    query = """SELECT DISTINCT ?mon ?monLabel ?id
+    WHERE {
+      ?mon wdt:P380 ?id.
+      SERVICE wikibase:label {
+        bd:serviceParam wikibase:language "ca, fr, en".
+      }
+    }"""
+    endpoint_url = "https://query.wikidata.org/sparql"
+    results = get_results(endpoint_url, query)
+    dicbic={}
+    for mon in results["results"]["bindings"]:
+        qmon=mon["mon"]["value"].replace("http://www.wikidata.org/entity/","")
+        nommon=mon["monLabel"]["value"]
+        dicbic[mon["id"]["value"]]={"qmon":qmon, "nommon":nommon}
+    if desa:
+        fitxer = r"C:\Users\Pere\Documents\perebot\merimee.pkl"
+        pickle.dump(dicbic, open(fitxer, "wb"))
+    return(dicbic)
+
+def carrega_merimee(disc=False):
+    if disc==True:
+        print ("Llegint del disc els Merimée existents a Wikidata")
+        base = pickle.load(open(r"C:\Users\Pere\Documents\perebot\merimee.pkl", "rb"))
+    else:
+        print ("Important amb una query els Merimée existents a Wikidata")
+        base = get_merimee()
+    return (base)
+
 def carrega_monwd(qitems, qtipusmun="Q2074737", mostra=False):
     n = len(qitems)
     print(n,"elements per carregar")
@@ -396,7 +435,8 @@ def get_monwd(qitems, qtipusmun="Q2074737", mostra=False):
     # Llegeix amb una query dades d'una llista de monuments a Wikidata.
     # mun llegeix municipi d'Espanya
     #print(qitems)
-    query = """SELECT DISTINCT ?item ?lon ?lat ?imatge ?prot ?itemLabel ?protLabel ?ipac ?bic ?igpcv ?sipca
+    query = """SELECT DISTINCT ?item ?lon ?lat ?imatge ?prot ?itemLabel ?protLabel 
+    ?ipac ?bic ?igpcv ?sipca ?merimee
     ?mun ?estil ?estilLabel ?ccat ?commonslink ?estat ?conserva ?inst ?instLabel
     WHERE {
       hint:Query hint:optimizer "None".
@@ -416,6 +456,7 @@ def get_monwd(qitems, qtipusmun="Q2074737", mostra=False):
       OPTIONAL {?item wdt:P808 ?bic}
       OPTIONAL {?item wdt:P2473 ?igpcv}
       OPTIONAL {?item wdt:P3580 ?sipca}
+      OPTIONAL {?item wdt:P380 ?merimee}
       OPTIONAL {
        ?item wdt:P131* ?mun.
        ?mun wdt:P31/wdt:P279* wd:"""+qtipusmun+""".
@@ -580,6 +621,7 @@ if len(faltenq)>0 and nocrea==False:
     igpcvexist=carrega_igpcv(iddisc or cataleg!="igpcv")
     bicexist=carrega_bic(iddisc or (cataleg!="igpcv" and cataleg!="bic"))
     sipcaexist=carrega_sipca(iddisc or cataleg!="bic")
+    merimeeexist=carrega_merimee(iddisc or cataleg!="mh")
 diccestat = {"and":"Q228", "mh":"Q142", "sard":"Q38"}
 dicctipusmun = {"and":"Q24279", "mh":"Q484170", "sard":"Q747074"}
 if cataleg in diccestat:
@@ -597,9 +639,12 @@ dicqmun,dicmunq = carrega_municipis()
 # canviem municipis homònims segons la zona (plantilla filera)
 if cataleg=="igpcv":
     dicmunq.update({"la mata":"Q1901661", "cabanes":"Q1646899", 
-    "figueres":"Q1983382", "torrent":"Q161945"})
+    "figueres":"Q1983382", "torrent":"Q161945", "corbera":"Q2045828", 
+    "millars":"Q34254"})
 elif cataleg=="ipac":
     dicmunq.update({"cabanes":"Q11257", "figueres":"Q6839", "torrent":"Q13572"})
+elif cataleg=="mh":
+    dicmunq.update({"corbera":"Q338840", "millars":"Q1369210"})
 dicmunq["menorca"]="Q52636"
 #for result in monwd: print(result)
 #print(monwd)
@@ -618,6 +663,8 @@ else:
     diccprot["BRL etnològics"]="Q11910247"
     diccprot["BIE"]="Q41477381"
     diccprot["BC"]="Q26934132"
+    diccprot["Inv."]="Q10387575"
+    diccprot["Cat."]="Q10387684"
 diccestil={}
 diccestil["romànic"]="Q46261"
 diccestil["gòtic"]="Q176483"
@@ -685,6 +732,12 @@ for item in llistaq+faltenq:
             if bicclau in sipcaexist.keys():
                 informe += monllista[item]["nomcoor"] + " SIPCA DUPLICAT de "
                 informe += sipcaexist[bicclau]["qmon"]+ " " + sipcaexist[bicclau]["nommon"] + "\n"
+                continue
+        if "id" in monllista[item].keys() and cataleg=="mh": #França
+            idclau= monllista[item]["id"]
+            if idclau in merimeeexist.keys():
+                informe += monllista[item]["nomcoor"] + " Merimée DUPLICAT de "
+                informe += merimeeexist[idclau]["qmon"]+ " " + merimeeexist[idclau]["nommon"] + "\n"
                 continue
         #comprovar els codis dels monuments valencians que no siguin BIC abans de pujar-los
         if cataleg=="igpcv":
@@ -819,8 +872,10 @@ for item in llistaq+faltenq:
     if not ("imatge" in monwd[item].keys()):
         if "imatge" in monllista[item].keys() and len(monllista[item]["imatge"])>4:
             imatgeposar = monllista[item]["imatge"].replace("http://commons.wikimedia.org/wiki/Special:FilePath/","")
-            instruccio = indexq+"|P18|"+'"'+imatgeposar+'"|S143|Q199693'
-            instruccions = instruccions + instruccio +"||"
+            imatges_prohibides = ["blanc.png"]
+            if not (imatgeposar.casefold() in imatges_prohibides):
+                instruccio = indexq+"|P18|"+'"'+imatgeposar+'"|S143|Q199693'
+                instruccions = instruccions + instruccio +"||"
     # commonscat
     if "commonscat" in monllista[item].keys() and len(monllista[item]["commonscat"])>2:
         if "ccat" in monwd[item].keys():
@@ -916,9 +971,22 @@ for item in llistaq+faltenq:
             informe = informe + "SIPCA DIFERENT a " + monllista[item]["nomcoor"] + " " + item + "\n"
             informe = informe + "Llista: " + sipcallista
             informe = informe + ", Wikidata: "+ monwd[item]["sipca"]["value"] + "\n"            
+    # codi Merimée
+    if not ("merimee" in monwd[item].keys()) and "id" in monllista[item].keys():
+        posamerimee=monllista[item]["id"]
+        if len(posamerimee)>0:
+            instruccio = indexq+"|P380|"+'"'+posamerimee+'"'#+"|S143|Q199693"
+            instruccions = instruccions + instruccio +"||"
+    elif "merimee" in monwd[item].keys() and "id" in monllista[item].keys():
+        merimeewd = monwd[item]["merimee"]["value"]
+        merimeellista = monllista[item]["id"]
+        if (merimeewd != merimeellista):
+            informe = informe + "Merimée DIFERENT a " + monllista[item]["nomcoor"] + " " + item + "\n"
+            informe = informe + "Llista: " + merimeellista
+            informe = informe + ", Wikidata: "+ merimeewd + "\n"            
     # municipi
     if "municipi" in monllista[item].keys() and len(monllista[item]["municipi"])>1: 
-        nomunallista = re.split("\(", monllista[item]["municipi"].casefold())[0].strip()
+        nomunallista = re.split("[(\]\|]", monllista[item]["municipi"].casefold())[0].strip(" [[]].,")
         munllista = dicmunq[nomunallista]
         if "mun" in monwd[item].keys():
             munwd = monwd[item]["mun"]["value"].replace("http://www.wikidata.org/entity/","")
@@ -971,4 +1039,6 @@ print("Instruccions pel quickstatements:")
 print(instruccions,"\n")
 print(informe)
 print("Duplicats:", " ".join([x for x,v in Counter(llistaq).items() if v>1]))
-print("Redireccions:", " ".join([item for item in llistaq if len(monwd[item].keys())<=2]))
+redireccions = [item for item in llistaq if len(monwd[item].keys())<=2]
+redireccions = ["[[:d:"+x+"]]" for x in redireccions]
+print("Redireccions:", ", ".join(redireccions))

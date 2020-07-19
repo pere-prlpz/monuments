@@ -159,7 +159,37 @@ def carrega_bic(disc=False):
         bic = get_bic()
     return (bic)
 
-def actuallista(pllista, diccipa, diccigpcv, diccbic, diccsipca, pagprova=False):
+def get_merimee(desa=True):
+    # monuments existents amb codi merimée
+    query = """SELECT DISTINCT ?mon ?monLabel ?id
+    WHERE {
+      ?mon wdt:P380 ?id.
+      SERVICE wikibase:label {
+        bd:serviceParam wikibase:language "ca, fr, en".
+      }
+    }"""
+    endpoint_url = "https://query.wikidata.org/sparql"
+    results = get_results(endpoint_url, query)
+    dicbic={}
+    for mon in results["results"]["bindings"]:
+        qmon=mon["mon"]["value"].replace("http://www.wikidata.org/entity/","")
+        nommon=mon["monLabel"]["value"]
+        dicbic[mon["id"]["value"]]={"qmon":qmon, "nommon":nommon}
+    if desa:
+        fitxer = r"C:\Users\Pere\Documents\perebot\merimee.pkl"
+        pickle.dump(dicbic, open(fitxer, "wb"))
+    return(dicbic)
+
+def carrega_merimee(disc=False):
+    if disc==True:
+        print ("Llegint del disc els Merimée existents a Wikidata")
+        base = pickle.load(open(r"C:\Users\Pere\Documents\perebot\merimee.pkl", "rb"))
+    else:
+        print ("Important amb una query els Merimée existents a Wikidata")
+        base = get_merimee()
+    return (base)
+
+def actuallista(pllista, diccipa, diccigpcv, diccbic, diccsipca, diccmerimee, pagprova=False):
     resultat=u""
     origen=pllista.title()
     text=pllista.get()
@@ -230,6 +260,19 @@ def actuallista(pllista, diccipa, diccigpcv, diccbic, diccsipca, pagprova=False)
                     codiclau.append("SIPCA")
                 else:
                     print("SIPCA inexistent")
+        if template.name.matches(("filera MH")) and posat==False:
+           if wd=="" and template.has("id"):
+                id=template.get("id").value.strip()
+                print("Per",template.get("nomcoor").value.strip(),"busquem id:", id)
+                if id in diccmerimee.keys():
+                    print(diccmerimee[id])
+                    wdposar=diccmerimee[id]["qmon"]
+                    #print(wdposar)
+                    template.add("wikidata",wdposar)
+                    posat = True
+                    codiclau.append("Merimée")
+                else:
+                    print("Merimée inexistent")
     text=code
     if text != text0:
         print("Desant",pllista)
@@ -261,8 +304,9 @@ ipacexist=carrega_ipac(iddisc)
 igpcvexist=carrega_igpcv(iddisc)
 bicexist=carrega_bic(iddisc)
 sipcaexist=carrega_sipca(iddisc)
+merimeeexist=carrega_merimee(iddisc)
 site=pwb.Site('ca')
 pag = pwb.Page(site, nomllista)
 #pag = pwb.Page(site, "Usuari:PereBot/taller")
 print (pag)
-actuallista(pag, ipacexist, igpcvexist, bicexist, sipcaexist)
+actuallista(pag, ipacexist, igpcvexist, bicexist, sipcaexist, merimeeexist)
