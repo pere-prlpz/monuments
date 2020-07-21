@@ -257,7 +257,28 @@ def get_municipis(desa=True):
         if "alias" in mon.keys():
             alies=mon["alias"]["value"]
             if len(alies)>1 and not(alies.casefold() in dicinvers.keys()):
-                dicinvers[alies.casefold()]=qmun           
+                dicinvers[alies.casefold()]=qmun   
+    # municipis de França amb el departament per desambiguar
+    query="""SELECT ?mun ?munLabel ?depLabel
+    WHERE {
+      hint:Query hint:optimizer "None".  
+      ?mun wdt:P31 wd:Q484170.
+      ?mun wdt:P131+ ?dep.
+      ?dep wdt:P31 wd:Q6465.
+        SERVICE wikibase:label {
+        bd:serviceParam wikibase:language "ca".
+        }
+    }"""
+    endpoint_url = "https://query.wikidata.org/sparql"
+    results = get_results(endpoint_url, query)
+    for mon in results["results"]["bindings"]:
+        qmun=mon["mun"]["value"].replace("http://www.wikidata.org/entity/","")
+        nommun=mon["munLabel"]["value"].strip()
+        nomdep=mon["depLabel"]["value"].strip()
+        nomdesamb=(nommun+" ("+nomdep+")").casefold()
+        if nomdesamb not in dicinvers.keys():
+            dicinvers[nomdesamb]=qmun
+    # desar
     if desa:
         fitxer = r"C:\Users\Pere\Documents\perebot\municipis.pkl"
         pickle.dump((dicdirecte, dicinvers), open(fitxer, "wb"))
@@ -433,7 +454,7 @@ def carrega_monwd(qitems, qtipusmun="Q2074737", mostra=False):
 
 def get_monwd(qitems, qtipusmun="Q2074737", mostra=False):
     # Llegeix amb una query dades d'una llista de monuments a Wikidata.
-    # mun llegeix municipi d'Espanya
+    # qtipusmun és el q del tipus de municipi (per defecte municipi d'Espanya)
     #print(qitems)
     query = """SELECT DISTINCT ?item ?lon ?lat ?imatge ?prot ?itemLabel ?protLabel 
     ?ipac ?bic ?igpcv ?sipca ?merimee
@@ -642,9 +663,13 @@ if cataleg=="igpcv":
     "figueres":"Q1983382", "torrent":"Q161945", "corbera":"Q2045828", 
     "millars":"Q34254"})
 elif cataleg=="ipac":
-    dicmunq.update({"cabanes":"Q11257", "figueres":"Q6839", "torrent":"Q13572"})
+    dicmunq.update({"cabanes":"Q11257", "figueres":"Q6839",
+    "torrent":"Q13572", "montblanc":"Q761735", "pau":"Q11799"})
 elif cataleg=="mh":
-    dicmunq.update({"corbera":"Q338840", "millars":"Q1369210"})
+    # ambigus amb altres llocs
+    dicmunq.update({"corbera":"Q338840", "millars":"Q1369210", "montblanc":"Q639920"})
+    # no desambiguats a la Viquipèdia
+    dicmunq.update({"ginhac":"Q1072156"})
 dicmunq["menorca"]="Q52636"
 #for result in monwd: print(result)
 #print(monwd)
@@ -972,7 +997,7 @@ for item in llistaq+faltenq:
             informe = informe + "Llista: " + sipcallista
             informe = informe + ", Wikidata: "+ monwd[item]["sipca"]["value"] + "\n"            
     # codi Merimée
-    if not ("merimee" in monwd[item].keys()) and "id" in monllista[item].keys():
+    if cataleg=="mh" and not ("merimee" in monwd[item].keys()) and "id" in monllista[item].keys():
         posamerimee=monllista[item]["id"]
         if len(posamerimee)>0:
             instruccio = indexq+"|P380|"+'"'+posamerimee+'"'#+"|S143|Q199693"
@@ -986,8 +1011,17 @@ for item in llistaq+faltenq:
             informe = informe + ", Wikidata: "+ merimeewd + "\n"            
     # municipi
     if "municipi" in monllista[item].keys() and len(monllista[item]["municipi"])>1: 
-        nomunallista = re.split("[(\]\|]", monllista[item]["municipi"].casefold())[0].strip(" [[]].,")
-        munllista = dicmunq[nomunallista]
+        nomunallista = re.split("[\]\|]", monllista[item]["municipi"].casefold())[0].strip(" [[]].,")
+        try:
+            munllista = dicmunq[nomunallista]
+        except KeyError:
+            print (nomunallista, "municipi desconegut")
+            nomunallista = re.split("[\(\]\|]", nomunallista)[0].strip(" [[]].,")
+            try:
+                munllista = dicmunq[nomunallista]
+            except KeyError:
+                print (nomunallista, "municipi desconegut")
+                munllista = "municipi desconegut"
         if "mun" in monwd[item].keys():
             munwd = monwd[item]["mun"]["value"].replace("http://www.wikidata.org/entity/","")
             if munllista != munwd:
