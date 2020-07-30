@@ -160,7 +160,7 @@ def carrega_bic(disc=False):
     return (bic)
 
 def get_merimee(desa=True):
-    # monuments existents amb codi merimée
+    # monuments existents amb codi Mérimée
     query = """SELECT DISTINCT ?mon ?monLabel ?id
     WHERE {
       ?mon wdt:P380 ?id.
@@ -182,10 +182,10 @@ def get_merimee(desa=True):
 
 def carrega_merimee(disc=False):
     if disc==True:
-        print ("Llegint del disc els Merimée existents a Wikidata")
+        print ("Llegint del disc els Mérimée existents a Wikidata")
         base = pickle.load(open(r"C:\Users\Pere\Documents\perebot\merimee.pkl", "rb"))
     else:
-        print ("Important amb una query els Merimée existents a Wikidata")
+        print ("Important amb una query els Mérimée existents a Wikidata")
         base = get_merimee()
     return (base)
 
@@ -270,9 +270,9 @@ def actuallista(pllista, diccipa, diccigpcv, diccbic, diccsipca, diccmerimee, pa
                     #print(wdposar)
                     template.add("wikidata",wdposar)
                     posat = True
-                    codiclau.append("Merimée")
+                    codiclau.append("Mérimée")
                 else:
-                    print("Merimée inexistent")
+                    print("Mérimée inexistent")
     text=code
     if text != text0:
         print("Desant",pllista)

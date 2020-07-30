@@ -92,7 +92,7 @@ def actuallista(pllista,diccipa,pagprova=False):
 
 # el programa comença aquí
 arguments = sys.argv[1:]
-diccllocs = {"menorca":"Q52636", "pval":"Q5720", "and":"Q228"}
+diccllocs = {"menorca":"Q52636", "pval":"Q5720", "and":"Q228", "bcn":"Q1492"}
 lloc = ""
 if len(arguments)>0:
     for unlloc in diccllocs.keys():
