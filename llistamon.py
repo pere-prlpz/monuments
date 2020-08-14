@@ -110,7 +110,8 @@ def monunallista(llista, i0=1, site=pwb.Site('ca')):
     fileraBICval=pwb.Page(site, "Plantilla:Filera BIC Val")
     fileraBICand=pwb.Page(site, "Plantilla:Filera BIC And")
     fileraMH=pwb.Page(site, "Plantilla:Filera MH")
-    fileres=[fileraIPA, fileraBIC, fileraBICval, fileraBICand, fileraMH]
+    fileraBCsard=pwb.Page(site, "Plantilla:Filera BC Sard")
+    fileres=[fileraIPA, fileraBIC, fileraBICval, fileraBICand, fileraMH, fileraBCsard]
     plantilles = llista.templatesWithParams()
     monllista = {}
     monq = []
@@ -140,6 +141,8 @@ def monunallista(llista, i0=1, site=pwb.Site('ca')):
                 cat0="and"
             elif plantilla[0]==fileraMH:
                 cat0="mh"
+            elif plantilla[0]==fileraBCsard:
+                cat0="sard"
     return(monllista, monq, monnoq, cat0)
 
 def monllistes(nomorigen, site=pwb.Site('ca')):
@@ -676,13 +679,15 @@ if cataleg=="igpcv":
 elif cataleg=="ipac":
     dicmunq.update({"cabanes":"Q11257", "figueres":"Q6839",
     "torrent":"Q13572", "montblanc":"Q761735", "pau":"Q11799", "la garriga":"Q15415",
-    "massanes":"Q13637"})
+    "massanes":"Q13637", "l'escala":"Q11304"})
 elif cataleg=="mh":
     # ambigus amb altres llocs
     dicmunq.update({"corbera":"Q338840", "millars":"Q1369210", "montblanc":"Q639920",
-    "la garriga":"Q227636", "massanes":"Q1072996"})
+    "la garriga":"Q227636", "massanes":"Q1072996", "tolosa":"Q7880", "l'escala":"Q391103"})
     # no desambiguats a la Viquipèdia
     dicmunq.update({"ginhac":"Q1072156"})
+else:
+    dicmunq.update({"l'alguer":"Q166282"})
 dicmunq["menorca"]="Q52636"
 #for result in monwd: print(result)
 #print(monwd)
@@ -815,7 +820,7 @@ for item in llistaq+faltenq:
         instruccions = instruccions + instruccio +"||"
         instp31,denomino = tria_instancia(monllista[item]["nomcoor"])
         munnet = monllista[item]["municipi"].strip("[]").split("|")[0].strip()
-        print (munnet)
+        #print (munnet)
         instruccio = indexq+"|Dca|"+'"'+ denomino +" "+ al(munnet)+'"'
         instruccions = instruccions + instruccio +"||"
     # coordenades
