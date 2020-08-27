@@ -1,11 +1,14 @@
 # Busca a Wikidata elements de monuments que falti enllaça en una llista de monuments i actualitza el paràmetre wikidata a la llista.
-# El nom de la llista se li dóna com a paràmetre extern. Per exemple:
+# Comprova si algun paràmetre wikidata apunta a una redirecció i el susbstitueix pel seu destí.
+# La llista o categoria de llistes se li dóna com a paràmetre extern. Per exemple:
 # python paramwd.py "Llista de monuments de Viladrau"
+# python paramwd.py "Llistes de monuments del País Valencià"
 # Les cometes són opcionals.
 # Paràmetres:
 # -iddisc No carrega els monuments de Wikidata sinó del disc. 
 
 import pywikibot as pwb
+from pywikibot import pagegenerators
 from SPARQLWrapper import SPARQLWrapper, JSON
 import mwparserfromhell
 #from collections import Counter
@@ -189,7 +192,11 @@ def carrega_merimee(disc=False):
         base = get_merimee()
     return (base)
 
-def actuallista(pllista, diccipa, diccigpcv, diccbic, diccsipca, diccmerimee, pagprova=False):
+def qmon(dicc):
+    mon = [x["qmon"] for x in list(dicc.values())]
+    return (mon)
+
+def actuallista(pllista, diccipa, diccigpcv, diccbic, diccsipca, diccmerimee, existents, pagprova=False):
     resultat=u""
     origen=pllista.title()
     text=pllista.get()
@@ -198,6 +205,7 @@ def actuallista(pllista, diccipa, diccigpcv, diccbic, diccsipca, diccmerimee, pa
     t=code.filter_templates();
     #print(t)
     codiclau = []
+    sumariredir = ""
     for template in t:
         #print (template.name)
         posat = False
@@ -207,6 +215,19 @@ def actuallista(pllista, diccipa, diccigpcv, diccbic, diccsipca, diccmerimee, pa
             #print(wd)
         else:
             wd=""
+        if wd !="":
+            if wd in existents:
+                #print (wd, "conegut")
+                pass
+            else:
+                item = pwb.ItemPage(repo, wd)
+                if item.isRedirectPage():
+                    wdposar=item.getRedirectTarget().title()
+                    template.add("wikidata",wdposar)
+                    print (wd, "redirecció a", wdposar)
+                    sumariredir = "arregla redireccions a Wikidata"
+                else:
+                    print ("comprovat que", wd, "no és una redirecció")        
         if template.name.matches(("filera IPA")):
            if wd=="" and template.has("id"):
                 id=template.get("id").value.strip()
@@ -276,13 +297,32 @@ def actuallista(pllista, diccipa, diccigpcv, diccbic, diccsipca, diccmerimee, pa
     text=code
     if text != text0:
         print("Desant",pllista)
-        claus = " i ".join(set(codiclau))
-        pllista.put(text,u"Robot actualitza el paràmetre wikidata a partir del codi "+claus)
+        if len(codiclau)>0:
+            claus = " i ".join(set(codiclau))
+            sumarinous = "actualitza el paràmetre wikidata a partir del codi "+claus
+        else:
+            sumarinous = ""
+        if len(sumarinous)*len(sumariredir)>0:
+            conj = " i "
+        else:
+            conj = ""
+        sumari = "Robot "+sumarinous+conj+sumariredir
+        pllista.put(text,sumari)
     else:
         print("Cap canvi")
     return()
 
-
+def actuallistes(nomorigen, diccipa, diccigpcv, diccbic, diccsipca, diccmerimee, existents, pagprova=False):
+    if re.match("llistes", nomorigen.casefold()):
+        cat = pwb.Category(site,'Category:'+nomorigen)
+        print(cat)
+        llistes = pagegenerators.CategorizedPageGenerator(cat, recurse=True)
+    else:
+        llistes = [pwb.Page(site, nomorigen)]
+    for llista in llistes:
+        print(llista)
+        actuallista(llista, diccipa, diccigpcv, diccbic, diccsipca, diccmerimee, existents, pagprova=False)
+    return()
 
 # el programa comença aquí
 iddisc=False
@@ -305,8 +345,9 @@ igpcvexist=carrega_igpcv(iddisc)
 bicexist=carrega_bic(iddisc)
 sipcaexist=carrega_sipca(iddisc)
 merimeeexist=carrega_merimee(iddisc)
+claustot = qmon(ipacexist)+qmon(igpcvexist)+qmon(bicexist)+qmon(sipcaexist)+qmon(merimeeexist)
 site=pwb.Site('ca')
-pag = pwb.Page(site, nomllista)
-#pag = pwb.Page(site, "Usuari:PereBot/taller")
-print (pag)
-actuallista(pag, ipacexist, igpcvexist, bicexist, sipcaexist, merimeeexist)
+repo = site.data_repository()
+#pag = pwb.Page(site, nomllista)
+#print (pag)
+actuallistes(nomllista, ipacexist, igpcvexist, bicexist, sipcaexist, merimeeexist, claustot)
