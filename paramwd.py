@@ -255,9 +255,13 @@ def actuallista(pllista, diccipa, diccigpcv, diccbic, diccsipca, diccmerimee, ex
                     codiclau.append("IGPCV")
                 else:
                     print("IGPCV inexistent")
-        if (template.name.matches(("filera BIC Val"))  or template.name.matches(("filera BIC"))) and posat==False:
-           if wd=="" and template.has("bic"):
+        if posat==False and (template.name.matches(("filera BIC Val")) or template.name.matches(("filera BIC")) or template.name.matches(("filera IPA"))):
+            id = ""
+            if wd=="" and template.has("bic"):
                 id=template.get("bic").value.strip()
+            elif wd=="" and template.has("id"):
+                id=template.get("id").value.strip()
+            if re.match("RI",id):
                 print("Per",template.get("nomcoor").value.strip(),"busquem id:", id)
                 if id in diccbic.keys():
                     print(diccbic[id])

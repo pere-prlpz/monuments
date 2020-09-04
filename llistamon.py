@@ -679,7 +679,8 @@ if cataleg=="igpcv":
 elif cataleg=="ipac":
     dicmunq.update({"cabanes":"Q11257", "figueres":"Q6839",
     "torrent":"Q13572", "montblanc":"Q761735", "pau":"Q11799", "la garriga":"Q15415",
-    "massanes":"Q13637", "l'escala":"Q11304"})
+    "massanes":"Q13637", "l'escala":"Q11304", "anglès":"Q13027", "flaçà":"Q13430",
+    "navès":"Q1917511", "avinyó":"Q16678","artés":"Q16677"})
 elif cataleg=="mh":
     # ambigus amb altres llocs
     dicmunq.update({"corbera":"Q338840", "millars":"Q1369210", "montblanc":"Q639920",
