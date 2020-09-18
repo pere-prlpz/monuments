@@ -1,4 +1,5 @@
-# Busca a Wikidata elements de monuments que falti enllaça en una llista de monuments i actualitza el paràmetre wikidata a la llista.
+# Busca a Wikidata elements de monuments que falti enllaça en una llista de monuments o d'art públic
+# i actualitza el paràmetre wikidata a la llista.
 # Comprova si algun paràmetre wikidata apunta a una redirecció i el susbstitueix pel seu destí.
 # La llista o categoria de llistes se li dóna com a paràmetre extern. Per exemple:
 # python paramwd.py "Llista de monuments de Viladrau"
@@ -6,6 +7,7 @@
 # Les cometes són opcionals.
 # Paràmetres:
 # -iddisc No carrega els monuments de Wikidata sinó del disc. 
+# -art Baixa de Wikidata els codis d'art públic però els de monuments els carrega del disc.
 
 import pywikibot as pwb
 from pywikibot import pagegenerators
@@ -192,11 +194,41 @@ def carrega_merimee(disc=False):
         base = get_merimee()
     return (base)
 
+def get_art(desa=True):
+    # monuments existents amb codi art públic
+    query = """SELECT DISTINCT ?mon ?monLabel ?art
+    WHERE {
+      ?mon wdt:P8601 ?art.
+      SERVICE wikibase:label {
+        bd:serviceParam wikibase:language "ca, en".
+      }
+    }"""
+    endpoint_url = "https://query.wikidata.org/sparql"
+    results = get_results(endpoint_url, query)
+    dicipac={}
+    for mon in results["results"]["bindings"]:
+        qmon=mon["mon"]["value"].replace("http://www.wikidata.org/entity/","")
+        nommon=mon["monLabel"]["value"]
+        dicipac[mon["art"]["value"]]={"qmon":qmon, "nommon":nommon}
+    if desa:
+        fitxer = r"C:\Users\Pere\Documents\perebot\art.pkl"
+        pickle.dump(dicipac, open(fitxer, "wb"))
+    return(dicipac)
+
+def carrega_art(disc=False):
+    if disc==True:
+        print ("Llegint del disc els codis art públic existents a Wikidata")
+        ipac = pickle.load(open(r"C:\Users\Pere\Documents\perebot\art.pkl", "rb"))
+    else:
+        print ("Important amb una query els codis art públic existents existents a Wikidata")
+        ipac = get_art()
+    return (ipac)
+
 def qmon(dicc):
     mon = [x["qmon"] for x in list(dicc.values())]
     return (mon)
 
-def actuallista(pllista, diccipa, diccigpcv, diccbic, diccsipca, diccmerimee, existents, pagprova=False):
+def actuallista(pllista, diccipa, diccigpcv, diccbic, diccsipca, diccmerimee, diccart, existents, pagprova=False):
     resultat=u""
     origen=pllista.title()
     text=pllista.get()
@@ -220,14 +252,18 @@ def actuallista(pllista, diccipa, diccigpcv, diccbic, diccsipca, diccmerimee, ex
                 #print (wd, "conegut")
                 pass
             else:
-                item = pwb.ItemPage(repo, wd)
+                try:
+                    item = pwb.ItemPage(repo, wd)
+                except pwb.InvalidTitle:
+                    print("Error:",wd,"no és un títol vàlid a Wikidata")
+                    continue
                 if item.isRedirectPage():
                     wdposar=item.getRedirectTarget().title()
                     template.add("wikidata",wdposar)
                     print (wd, "redirecció a", wdposar)
                     sumariredir = "arregla redireccions a Wikidata"
                 else:
-                    print ("comprovat que", wd, "no és una redirecció")        
+                    print ("comprovat que", wd, "no és una redirecció")      
         if template.name.matches(("filera IPA")):
            if wd=="" and template.has("id"):
                 id=template.get("id").value.strip()
@@ -246,7 +282,7 @@ def actuallista(pllista, diccipa, diccigpcv, diccbic, diccsipca, diccmerimee, ex
            if wd=="" and template.has("bic"):
                 id=template.get("bic").value.strip()
                 print("Per",template.get("nomcoor").value.strip(),"busquem id:", id)
-                if id in diccigpcv.keys():
+                if id in diccigpcv.keys() and re.match("(46|03|12)\.", id):
                     print(diccigpcv[id])
                     wdposar=diccigpcv[id]["qmon"]
                     #print(wdposar)
@@ -298,6 +334,19 @@ def actuallista(pllista, diccipa, diccigpcv, diccbic, diccsipca, diccmerimee, ex
                     codiclau.append("Mérimée")
                 else:
                     print("Mérimée inexistent")
+        if template.name.matches(("filera art públic")) and posat==False:
+           if wd=="" and template.has("codi"):
+                id=template.get("codi").value.strip().replace("08019/","")
+                print("Per",template.get("títol").value.strip(),"busquem id:", id)
+                if id in diccart.keys():
+                    print(diccart[id])
+                    wdposar=diccart[id]["qmon"]
+                    #print(wdposar)
+                    template.add("wikidata",wdposar)
+                    posat = True
+                    codiclau.append("art públic de Barcelona")
+                else:
+                    print("Codi art públic de Barcelona inexistent")
     text=code
     if text != text0:
         print("Desant",pllista)
@@ -316,7 +365,7 @@ def actuallista(pllista, diccipa, diccigpcv, diccbic, diccsipca, diccmerimee, ex
         print("Cap canvi")
     return()
 
-def actuallistes(nomorigen, diccipa, diccigpcv, diccbic, diccsipca, diccmerimee, existents, pagprova=False):
+def actuallistes(nomorigen, diccipa, diccigpcv, diccbic, diccsipca, diccmerimee, diccart, existents, pagprova=False):
     if re.match("llistes", nomorigen.casefold()):
         cat = pwb.Category(site,'Category:'+nomorigen)
         print(cat)
@@ -325,11 +374,12 @@ def actuallistes(nomorigen, diccipa, diccigpcv, diccbic, diccsipca, diccmerimee,
         llistes = [pwb.Page(site, nomorigen)]
     for llista in llistes:
         print(llista)
-        actuallista(llista, diccipa, diccigpcv, diccbic, diccsipca, diccmerimee, existents, pagprova=False)
+        actuallista(llista, diccipa, diccigpcv, diccbic, diccsipca, diccmerimee, diccart, existents, pagprova=False)
     return()
 
 # el programa comença aquí
 iddisc=False
+art=False
 arguments = sys.argv[1:]
 if len(arguments)>0:
     if "-ipacdisc" in arguments:
@@ -338,6 +388,10 @@ if len(arguments)>0:
     if "-iddisc" in arguments:
         iddisc=True
         arguments.remove("-iddisc")
+    if "-art" in arguments: # llegir art de wikidata
+        art=True
+        iddisc=True
+        arguments.remove("-art")
 if len(arguments)>0:
     nomllista=" ".join(arguments)
 else:
@@ -349,9 +403,11 @@ igpcvexist=carrega_igpcv(iddisc)
 bicexist=carrega_bic(iddisc)
 sipcaexist=carrega_sipca(iddisc)
 merimeeexist=carrega_merimee(iddisc)
+artexist=carrega_art(iddisc and not art)
 claustot = qmon(ipacexist)+qmon(igpcvexist)+qmon(bicexist)+qmon(sipcaexist)+qmon(merimeeexist)
+claustot=claustot+qmon(artexist)
 site=pwb.Site('ca')
 repo = site.data_repository()
 #pag = pwb.Page(site, nomllista)
 #print (pag)
-actuallistes(nomllista, ipacexist, igpcvexist, bicexist, sipcaexist, merimeeexist, claustot)
+actuallistes(nomllista, ipacexist, igpcvexist, bicexist, sipcaexist, merimeeexist, artexist, claustot)
