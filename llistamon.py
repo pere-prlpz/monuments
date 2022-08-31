@@ -292,13 +292,13 @@ def get_municipis(desa=True):
             dicinvers[nomdesamb]=qmun
     # desar
     if desa:
-        fitxer = r"C:\Users\Pere\Documents\perebot\municipis.pkl"
+        fitxer = r"municipis.pkl"
         pickle.dump((dicdirecte, dicinvers), open(fitxer, "wb"))
     return(dicdirecte, dicinvers)
 
 def carrega_municipis():
     try:
-        a,b=pickle.load(open(r"C:\Users\Pere\Documents\perebot\municipis.pkl", "rb"))
+        a,b=pickle.load(open(r"municipis.pkl", "rb"))
     except FileNotFoundError:
         print ("Fitxer municipis no trobat. Important de Wikidata.")
         a,b=get_municipis()
@@ -321,14 +321,14 @@ def get_ipac(desa=True):
         nommon=mon["monLabel"]["value"]
         dicipac[mon["ipac"]["value"]]={"qmon":qmon, "nommon":nommon}
     if desa:
-        fitxer = r"C:\Users\Pere\Documents\perebot\ipac.pkl"
+        fitxer = r"ipac.pkl"
         pickle.dump(dicipac, open(fitxer, "wb"))
     return(dicipac)
 
 def carrega_ipac(disc=False):
     if disc==True:
         print ("Llegint del disc els IPAC existents a Wikidata")
-        ipac = pickle.load(open(r"C:\Users\Pere\Documents\perebot\ipac.pkl", "rb"))
+        ipac = pickle.load(open(r"ipac.pkl", "rb"))
     else:
         print ("Important amb una query els IPAC existents a Wikidata")
         ipac = get_ipac()
@@ -351,14 +351,14 @@ def get_igpcv(desa=True):
         nommon=mon["monLabel"]["value"]
         dicigpcv[mon["id"]["value"]]={"qmon":qmon, "nommon":nommon}
     if desa:
-        fitxer = r"C:\Users\Pere\Documents\perebot\igpcv.pkl"
+        fitxer = r"igpcv.pkl"
         pickle.dump(dicigpcv, open(fitxer, "wb"))
     return(dicigpcv)
 
 def carrega_igpcv(disc=False):
     if disc==True:
         print ("Llegint del disc els igpcv existents a Wikidata")
-        igpcv = pickle.load(open(r"C:\Users\Pere\Documents\perebot\igpcv.pkl", "rb"))
+        igpcv = pickle.load(open(r"igpcv.pkl", "rb"))
     else:
         print ("Important amb una query els igpcv existents a Wikidata")
         igpcv = get_igpcv()
@@ -381,14 +381,14 @@ def get_sipca(desa=True):
         nommon=mon["monLabel"]["value"]
         dicid[mon["id"]["value"]]={"qmon":qmon, "nommon":nommon}
     if desa:
-        fitxer = r"C:\Users\Pere\Documents\perebot\sipca.pkl"
+        fitxer = r"sipca.pkl"
         pickle.dump(dicid, open(fitxer, "wb"))
     return(dicid)
 
 def carrega_sipca(disc=False):
     if disc==True:
         print ("Llegint del disc els sipca existents a Wikidata")
-        sipca = pickle.load(open(r"C:\Users\Pere\Documents\perebot\sipca.pkl", "rb"))
+        sipca = pickle.load(open(r"sipca.pkl", "rb"))
     else:
         print ("Important amb una query els sipca existents a Wikidata")
         sipca = get_sipca()
@@ -411,14 +411,14 @@ def get_bic(desa=True):
         nommon=mon["monLabel"]["value"]
         dicbic[mon["id"]["value"]]={"qmon":qmon, "nommon":nommon}
     if desa:
-        fitxer = r"C:\Users\Pere\Documents\perebot\bic.pkl"
+        fitxer = r"bic.pkl"
         pickle.dump(dicbic, open(fitxer, "wb"))
     return(dicbic)
 
 def carrega_bic(disc=False):
     if disc==True:
         print ("Llegint del disc els BIC existents a Wikidata")
-        bic = pickle.load(open(r"C:\Users\Pere\Documents\perebot\bic.pkl", "rb"))
+        bic = pickle.load(open(r"bic.pkl", "rb"))
     else:
         print ("Important amb una query els bic existents a Wikidata")
         bic = get_bic()
@@ -441,14 +441,14 @@ def get_merimee(desa=True):
         nommon=mon["monLabel"]["value"]
         dicbic[mon["id"]["value"]]={"qmon":qmon, "nommon":nommon}
     if desa:
-        fitxer = r"C:\Users\Pere\Documents\perebot\merimee.pkl"
+        fitxer = r"merimee.pkl"
         pickle.dump(dicbic, open(fitxer, "wb"))
     return(dicbic)
 
 def carrega_merimee(disc=False):
     if disc==True:
         print ("Llegint del disc els Mérimée existents a Wikidata")
-        base = pickle.load(open(r"C:\Users\Pere\Documents\perebot\merimee.pkl", "rb"))
+        base = pickle.load(open(r"merimee.pkl", "rb"))
     else:
         print ("Important amb una query els Mérimée existents a Wikidata")
         base = get_merimee()
@@ -580,7 +580,7 @@ def tria_instancia(nom0):
         return("Q1370517", "element arquitectònic")
     elif re.match("escuts? ", nom):
         return("Q245117", "element arquitectònic")
-    elif re.match("búnquer? ", nom):
+    elif re.match("búnquers? ", nom):
         return("Q91122", "búnquer")
     elif re.match("bord(a|es) ", nom):
         return("Q13231610", "borda")
