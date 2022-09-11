@@ -820,7 +820,7 @@ for item in llistaq+faltenq:
         instruccio = indexq+"|Aca|"+'"'+ monllista[item]["nomcoor"]+'"'
         instruccions = instruccions + instruccio +"||"
         instp31,denomino = tria_instancia(monllista[item]["nomcoor"])
-        munnet = monllista[item]["municipi"].strip("[]").split("|")[0].strip()
+        munnet = monllista[item]["municipi"].strip("[]").split("|")[0].split("(")[0].strip()
         #print (munnet)
         instruccio = indexq+"|Dca|"+'"'+ denomino +" "+ al(munnet)+'"'
         instruccions = instruccions + instruccio +"||"
@@ -1032,7 +1032,7 @@ for item in llistaq+faltenq:
             informe = informe + ", Wikidata: "+ merimeewd + "\n"            
     # municipi
     if "municipi" in monllista[item].keys() and len(monllista[item]["municipi"])>1: 
-        nomunallista = re.split("[\]\|]", monllista[item]["municipi"].casefold())[0].strip(" [[]].,")
+        nomunallista = re.split("[\]\|\(]", monllista[item]["municipi"].casefold())[0].strip(" [[]].,")
         try:
             munllista = dicmunq[nomunallista]
         except KeyError:
