@@ -13,7 +13,7 @@ import pywikibot as pwb
 from pywikibot import pagegenerators
 from SPARQLWrapper import SPARQLWrapper, JSON
 import mwparserfromhell
-#from collections import Counter
+from collections import Counter
 #import math
 import re
 import pickle
@@ -61,14 +61,14 @@ def get_ipac(desa=True):
         nommon=mon["monLabel"]["value"]
         dicipac[mon["ipac"]["value"]]={"qmon":qmon, "nommon":nommon}
     if desa:
-        fitxer = r"C:\Users\Pere\Documents\perebot\ipac.pkl"
+        fitxer = r"ipac.pkl"
         pickle.dump(dicipac, open(fitxer, "wb"))
     return(dicipac)
 
 def carrega_ipac(disc=False):
     if disc==True:
         print ("Llegint del disc els IPAC existents a Wikidata")
-        ipac = pickle.load(open(r"C:\Users\Pere\Documents\perebot\ipac.pkl", "rb"))
+        ipac = pickle.load(open(r"ipac.pkl", "rb"))
     else:
         print ("Important amb una query els IPAC existents a Wikidata")
         ipac = get_ipac()
@@ -91,14 +91,14 @@ def get_igpcv(desa=True):
         nommon=mon["monLabel"]["value"]
         dicigpcv[mon["id"]["value"]]={"qmon":qmon, "nommon":nommon}
     if desa:
-        fitxer = r"C:\Users\Pere\Documents\perebot\igpcv.pkl"
+        fitxer = r"igpcv.pkl"
         pickle.dump(dicigpcv, open(fitxer, "wb"))
     return(dicigpcv)
 
 def carrega_igpcv(disc=False):
     if disc==True:
         print ("Llegint del disc els igpcv existents a Wikidata")
-        igpcv = pickle.load(open(r"C:\Users\Pere\Documents\perebot\igpcv.pkl", "rb"))
+        igpcv = pickle.load(open(r"igpcv.pkl", "rb"))
     else:
         print ("Important amb una query els igpcv existents a Wikidata")
         igpcv = get_igpcv()
@@ -121,14 +121,14 @@ def get_sipca(desa=True):
         nommon=mon["monLabel"]["value"]
         dicid[mon["id"]["value"]]={"qmon":qmon, "nommon":nommon}
     if desa:
-        fitxer = r"C:\Users\Pere\Documents\perebot\sipca.pkl"
+        fitxer = r"sipca.pkl"
         pickle.dump(dicid, open(fitxer, "wb"))
     return(dicid)
 
 def carrega_sipca(disc=False):
     if disc==True:
         print ("Llegint del disc els sipca existents a Wikidata")
-        sipca = pickle.load(open(r"C:\Users\Pere\Documents\perebot\sipca.pkl", "rb"))
+        sipca = pickle.load(open(r"sipca.pkl", "rb"))
     else:
         print ("Important amb una query els sipca existents a Wikidata")
         sipca = get_sipca()
@@ -151,14 +151,14 @@ def get_bic(desa=True):
         nommon=mon["monLabel"]["value"]
         dicbic[mon["id"]["value"]]={"qmon":qmon, "nommon":nommon}
     if desa:
-        fitxer = r"C:\Users\Pere\Documents\perebot\bic.pkl"
+        fitxer = r"bic.pkl"
         pickle.dump(dicbic, open(fitxer, "wb"))
     return(dicbic)
 
 def carrega_bic(disc=False):
     if disc==True:
         print ("Llegint del disc els BIC existents a Wikidata")
-        bic = pickle.load(open(r"C:\Users\Pere\Documents\perebot\bic.pkl", "rb"))
+        bic = pickle.load(open(r"bic.pkl", "rb"))
     else:
         print ("Important amb una query els bic existents a Wikidata")
         bic = get_bic()
@@ -181,14 +181,14 @@ def get_merimee(desa=True):
         nommon=mon["monLabel"]["value"]
         dicbic[mon["id"]["value"]]={"qmon":qmon, "nommon":nommon}
     if desa:
-        fitxer = r"C:\Users\Pere\Documents\perebot\merimee.pkl"
+        fitxer = r"merimee.pkl"
         pickle.dump(dicbic, open(fitxer, "wb"))
     return(dicbic)
 
 def carrega_merimee(disc=False):
     if disc==True:
         print ("Llegint del disc els Mérimée existents a Wikidata")
-        base = pickle.load(open(r"C:\Users\Pere\Documents\perebot\merimee.pkl", "rb"))
+        base = pickle.load(open(r"merimee.pkl", "rb"))
     else:
         print ("Important amb una query els Mérimée existents a Wikidata")
         base = get_merimee()
@@ -211,14 +211,14 @@ def get_art(desa=True):
         nommon=mon["monLabel"]["value"]
         dicipac[mon["art"]["value"]]={"qmon":qmon, "nommon":nommon}
     if desa:
-        fitxer = r"C:\Users\Pere\Documents\perebot\art.pkl"
+        fitxer = r"art.pkl"
         pickle.dump(dicipac, open(fitxer, "wb"))
     return(dicipac)
 
 def carrega_art(disc=False):
     if disc==True:
         print ("Llegint del disc els codis art públic existents a Wikidata")
-        ipac = pickle.load(open(r"C:\Users\Pere\Documents\perebot\art.pkl", "rb"))
+        ipac = pickle.load(open(r"art.pkl", "rb"))
     else:
         print ("Important amb una query els codis art públic existents existents a Wikidata")
         ipac = get_art()
@@ -238,6 +238,7 @@ def actuallista(pllista, diccipa, diccigpcv, diccbic, diccsipca, diccmerimee, di
     #print(t)
     codiclau = []
     sumariredir = ""
+    ids = []
     for template in t:
         #print (template.name)
         posat = False
@@ -347,6 +348,8 @@ def actuallista(pllista, diccipa, diccigpcv, diccbic, diccsipca, diccmerimee, di
                     codiclau.append("art públic de Barcelona")
                 else:
                     print("Codi art públic de Barcelona inexistent")
+        if template.has("id"):
+            ids.append(template.get("id").strip())        
     text=code
     if text != text0:
         print("Desant",pllista)
@@ -363,6 +366,9 @@ def actuallista(pllista, diccipa, diccigpcv, diccbic, diccsipca, diccmerimee, di
         pllista.put(text,sumari)
     else:
         print("Cap canvi")
+    compta = Counter(ids)
+    dups = {id:n for (id,n) in compta.items() if n>1}
+    print("Identificadors duplicats:",dups)
     return()
 
 def actuallistes(nomorigen, diccipa, diccigpcv, diccbic, diccsipca, diccmerimee, diccart, existents, pagprova=False):
