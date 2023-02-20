@@ -477,7 +477,7 @@ def get_monwd(qitems, qtipusmun="Q2074737", mostra=False):
     # qtipusmun és el q del tipus de municipi (per defecte municipi d'Espanya)
     #print(qitems)
     query = """SELECT DISTINCT ?item ?lon ?lat ?imatge ?prot ?itemLabel ?protLabel 
-    ?ipac ?bic ?igpcv ?sipca ?merimee
+    ?ipac ?bic ?igpcv ?sipca ?merimee ?ajbcn
     ?mun ?estil ?estilLabel ?ccat ?commonslink ?estat ?conserva ?inst ?instLabel
     WHERE {
       hint:Query hint:optimizer "None".
@@ -498,6 +498,7 @@ def get_monwd(qitems, qtipusmun="Q2074737", mostra=False):
       OPTIONAL {?item wdt:P2473 ?igpcv}
       OPTIONAL {?item wdt:P3580 ?sipca}
       OPTIONAL {?item wdt:P380 ?merimee}
+      OPTIONAL {?item wdt:P11557 ?ajbcn}
       OPTIONAL {
        ?item wdt:P131* ?mun.
        ?mun wdt:P31/wdt:P279* wd:"""+qtipusmun+""".
@@ -667,6 +668,7 @@ else:
     qtipusmun="Q2074737"
 print("Important monuments de Wikidata")
 monwd=carrega_monwd(llistaq, qtipusmun, mostra=verbose1)
+#print(monwd) #
 for id in faltenq:
     monwd[id]={}
 print("Carregant diccionaris de municipis")
@@ -752,7 +754,7 @@ for item in llistaq+faltenq:
         if nocrea==True:
             continue
         if "id" in monllista[item].keys() and cataleg=="ipac":
-            ipaclau= monllista[item]["id"].replace("IPA-","")
+            ipaclau= monllista[item]["id"].replace("IPA-","").strip()
             if ipaclau in ipacexist.keys():
                 #print (monllista[item]["nomcoor"], item, " IPAC duplicat de:")
                 #print (ipacexist[ipaclau])
@@ -892,7 +894,7 @@ for item in llistaq+faltenq:
                     instruccio = indexq+"|P1435|"+protllista
                     instruccio = instruccio + "|S143|Q199693" 
                     instruccions = instruccions + instruccio +"||"
-                elif verbose==True or qprotwd != "Q23712" or protllista != "Q1019352": #avisar
+                elif verbose==True:# or qprotwd != "Q23712" or protllista != "Q1019352": #avisar
                     print (monllista[item]["nomcoor"], item, " Protecció diferent a la llista i a Wikidata:")
                     print ("Llista:", monllista[item]["prot"], ", Wikidata:", qprotwd)
                     #print (monwd[item])
@@ -1054,6 +1056,30 @@ for item in llistaq+faltenq:
             instruccions = instruccions + instruccio +"||"
     else:
         informe = informe + "Manca municipi a la llista a " + monllista[item]["nomcoor"] + " " + item + "\n"
+    # codi ajuntament bcn
+    if nomunallista == "barcelona" and "idurl2" in monllista[item].keys() and len(monllista[item]["idurl2"])>2:
+        #print(monllista[item]["idurl2"])
+        ajbcnllista = re.sub("^ *bcn/","",monllista[item]["idurl2"]).strip()
+        #print(ajbcnllista)
+        if re.match("^[0-9][0-9]/[0-9]+$", ajbcnllista):
+            ajbcnllista = re.sub("^[01][0-9]/","", ajbcnllista)
+        if re.match("^[0-9]+$", ajbcnllista):
+            if "ajbcn" in monwd[item].keys():
+                ajbcnwd = monwd[item]["ajbcn"]["value"]
+                #print("Wikidata:", ajbcnwd)
+                if ajbcnllista != ajbcnwd:
+                    informe = informe + "Codis ajuntament Barcelona diferents a " + monllista[item]["nomcoor"] + " " + item + "\n"
+                    informe = informe + "Llista: " + ajbcnllista
+                    informe = informe + ", Wikidata: " + ajbcnwd + "\n"
+            else:
+                instruccio = indexq+"|P11557|"+'"'+ajbcnllista+'"'+"|S143|Q199693"
+                instruccions = instruccions + instruccio +"||"
+                instruccio = indexq+"|P1435|Q112668687|S143|Q199693"
+                instruccions = instruccions + instruccio +"||"
+        else:
+                informe = informe + "Codi ajuntament incorrecte a " + monllista[item]["nomcoor"] + " " + item + "\n"
+                informe = informe + "Codi:" + ajbcnllista + "\n"
+                print("Codi ajuntament incorrecte a " + monllista[item]["nomcoor"] + " " + item)
     # estil
     if "estil" in monllista[item].keys() and len(monllista[item]["estil"])>3:
         estil0 = monllista[item]["estil"].casefold().replace("[[","").replace("]]","")
