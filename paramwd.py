@@ -255,7 +255,7 @@ def actuallista(pllista, diccipa, diccigpcv, diccbic, diccsipca, diccmerimee, di
             else:
                 try:
                     item = pwb.ItemPage(repo, wd)
-                except pwb.InvalidTitle:
+                except pwb.exceptions.InvalidTitleError:
                     print("Error:",wd,"no és un títol vàlid a Wikidata")
                     continue
                 if item.isRedirectPage():
@@ -368,7 +368,8 @@ def actuallista(pllista, diccipa, diccigpcv, diccbic, diccsipca, diccmerimee, di
         print("Cap canvi")
     compta = Counter(ids)
     dups = {id:n for (id,n) in compta.items() if n>1}
-    print("Identificadors duplicats:",dups)
+    if len(dups)>0:
+        print("Identificadors duplicats:",dups)
     return()
 
 def actuallistes(nomorigen, diccipa, diccigpcv, diccbic, diccsipca, diccmerimee, diccart, existents, pagprova=False):

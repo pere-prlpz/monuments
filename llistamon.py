@@ -477,7 +477,7 @@ def get_monwd(qitems, qtipusmun="Q2074737", mostra=False):
     # qtipusmun és el q del tipus de municipi (per defecte municipi d'Espanya)
     #print(qitems)
     query = """SELECT DISTINCT ?item ?lon ?lat ?imatge ?prot ?itemLabel ?protLabel 
-    ?ipac ?bic ?igpcv ?sipca ?merimee ?ajbcn
+    ?ipac ?bic ?igpcv ?sipca ?merimee ?ajbcn ?url
     ?mun ?estil ?estilLabel ?ccat ?commonslink ?estat ?conserva ?inst ?instLabel
     WHERE {
       hint:Query hint:optimizer "None".
@@ -509,6 +509,7 @@ def get_monwd(qitems, qtipusmun="Q2074737", mostra=False):
          schema:isPartOf <https://commons.wikimedia.org/> }
       OPTIONAL {?item wdt:P17 ?estat}
       OPTIONAL {?item wdt:P5816 ?conserva}
+      OPTIONAL {?item wdt:P973 ?url}
     SERVICE wikibase:label {
     bd:serviceParam wikibase:language "ca" .
     }
@@ -1080,6 +1081,18 @@ for item in llistaq+faltenq:
                 informe = informe + "Codi ajuntament incorrecte a " + monllista[item]["nomcoor"] + " " + item + "\n"
                 informe = informe + "Codi:" + ajbcnllista + "\n"
                 print("Codi ajuntament incorrecte a " + monllista[item]["nomcoor"] + " " + item)
+    # codi diba com a "descrit a la url"
+    if "idurl2" in monllista[item].keys() and len(monllista[item]["idurl2"])>2:
+        print(monllista[item]["idurl2"])
+        if re.match("^diba/.*$", monllista[item]["idurl2"]):
+            urldiba = re.sub("^diba/", "https://patrimonicultural.diba.cat/element/", monllista[item]["idurl2"])
+            # en proves:
+            print(urldiba)
+            if "url" in monwd[item].keys():
+                print("Wikidata:", monwd[item]["url"]["value"])
+            else:
+                instruccio = indexq+"|P973|"+'"'+urldiba+'"'+"|P407|Q7026|S143|Q199693"
+                instruccions = instruccions + instruccio +"||"
     # estil
     if "estil" in monllista[item].keys() and len(monllista[item]["estil"])>3:
         estil0 = monllista[item]["estil"].casefold().replace("[[","").replace("]]","")
