@@ -454,7 +454,7 @@ def carrega_merimee(disc=False):
         base = get_merimee()
     return (base)
 
-def carrega_monwd(qitems, qtipusmun="Q2074737", mostra=False):
+def carrega_monwd(qitems, qtipusmun="Q2074737", mostra=True):
     n = len(qitems)
     print(n,"elements per carregar")
     if n<150:
@@ -477,7 +477,7 @@ def get_monwd(qitems, qtipusmun="Q2074737", mostra=False):
     # qtipusmun és el q del tipus de municipi (per defecte municipi d'Espanya)
     #print(qitems)
     query = """SELECT DISTINCT ?item ?lon ?lat ?imatge ?prot ?itemLabel ?protLabel 
-    ?ipac ?bic ?igpcv ?sipca ?merimee ?ajbcn ?url
+    ?ipac ?bic ?igpcv ?sipca ?merimee ?ajbcn ?diba ?url
     ?mun ?estil ?estilLabel ?ccat ?commonslink ?estat ?conserva ?inst ?instLabel
     WHERE {
       hint:Query hint:optimizer "None".
@@ -509,6 +509,7 @@ def get_monwd(qitems, qtipusmun="Q2074737", mostra=False):
          schema:isPartOf <https://commons.wikimedia.org/> }
       OPTIONAL {?item wdt:P17 ?estat}
       OPTIONAL {?item wdt:P5816 ?conserva}
+      OPTIONAL {?item wdt:P12860 ?diba}
       OPTIONAL {?item wdt:P973 ?url}
     SERVICE wikibase:label {
     bd:serviceParam wikibase:language "ca" .
@@ -588,6 +589,8 @@ def tria_instancia(nom0):
         return("Q13231610", "borda")
     elif re.match("murall(a|es) ", nom):
         return("Q16748868", "muralla") #muralla urbana
+    elif re.match("claustres? ", nom):
+        return("Q1430154", "claustre") #muralla urbana
     else:
         return("Q41176", "edifici")
 
@@ -603,6 +606,7 @@ nocrea=False
 creatot=False
 mostra=False
 toldist=.11
+posarurldiba=False #posar P973 dels mapes de patrimonicultural
 sparql = SPARQLWrapper("https://query.wikidata.org/sparql", agent="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.11 (KHTML, like Gecko) Chrome/23.0.1271.64 Safari/537.11")
 arguments = sys.argv[1:]
 if len(arguments)>0:
@@ -827,6 +831,11 @@ for item in llistaq+faltenq:
         #print (munnet)
         instruccio = indexq+"|Dca|"+'"'+ denomino +" "+ al(munnet)+'"'
         instruccions = instruccions + instruccio +"||"
+        if indexq=="LAST":
+            instruccio = indexq+"|Len|"+'"'+ monllista[item]["nomcoor"].split("(")[0].strip()+'"'
+            instruccions = instruccions + instruccio +"||"
+            instruccio = indexq+"|Den|"+'"'+ "Cultural heritage monument in "+ munnet+'"'
+            instruccions = instruccions + instruccio +"||"
     # coordenades
     if "lat" in monllista[item].keys() and len(monllista[item]["lat"])>4:
         if "lat" in monwd[item].keys():
@@ -1081,17 +1090,25 @@ for item in llistaq+faltenq:
                 informe = informe + "Codi ajuntament incorrecte a " + monllista[item]["nomcoor"] + " " + item + "\n"
                 informe = informe + "Codi:" + ajbcnllista + "\n"
                 print("Codi ajuntament incorrecte a " + monllista[item]["nomcoor"] + " " + item)
-    # codi diba com a "descrit a la url"
+    # codi diba com a "descrit a la url" i com a identificador
     if "idurl2" in monllista[item].keys() and len(monllista[item]["idurl2"])>2:
-        print(monllista[item]["idurl2"])
+        #print(monllista[item]["idurl2"])
         if re.match("^diba/.*$", monllista[item]["idurl2"]):
             urldiba = re.sub("^diba/", "https://patrimonicultural.diba.cat/element/", monllista[item]["idurl2"])
             # en proves:
-            print(urldiba)
-            if "url" in monwd[item].keys():
-                print("Wikidata:", monwd[item]["url"]["value"])
+            #print(urldiba)
+            if posarurldiba:
+                if "url" in monwd[item].keys():
+                    print("Wikidata:", monwd[item]["url"]["value"])
+                else:
+                    instruccio = indexq+"|P973|"+'"'+urldiba+'"'+"|P407|Q7026|S143|Q199693"
+                    instruccions = instruccions + instruccio +"||"
+            iddiba = re.sub("^diba/", "", monllista[item]["idurl2"])
+            if "diba" in monwd[item].keys():
+                print("Wikidata:", monwd[item]["diba"]["value"])
             else:
-                instruccio = indexq+"|P973|"+'"'+urldiba+'"'+"|P407|Q7026|S143|Q199693"
+                print(monwd[item])
+                instruccio = indexq+"|P12860|"+'"'+iddiba+'"'+"|S143|Q199693"
                 instruccions = instruccions + instruccio +"||"
     # estil
     if "estil" in monllista[item].keys() and len(monllista[item]["estil"])>3:
