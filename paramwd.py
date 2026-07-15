@@ -11,7 +11,11 @@
 
 import pywikibot as pwb
 from pywikibot import pagegenerators
-from SPARQLWrapper import SPARQLWrapper, JSON
+from pywikibot.data import sparql
+from pywikibot.exceptions import ServerError
+from requests.exceptions import ConnectionError, ChunkedEncodingError, Timeout
+from pywikibot.exceptions import ServerError
+import re
 import mwparserfromhell
 from collections import Counter
 #import math
@@ -21,14 +25,30 @@ import sys
 import time
 import urllib
 
-def get_results(endpoint_url, query):
-    user_agent = "PereBot/1.0 (ca:User:Pere_prlpz; prlpzb@gmail.com) Python/%s.%s" % (sys.version_info[0], sys.version_info[1])
-    sparql = SPARQLWrapper(endpoint_url, agent=user_agent)
-    sparql.setQuery(query)
-    sparql.setReturnFormat(JSON)
-    return sparql.query().convert()
+# versió per compatibilitat
+# paràmetre endpoint obsolet i no es fa servir
+def get_results(endpoint_url="", query="", retries=3):
+    sq = sparql.SparqlQuery()
+    for i in range(retries):
+        try:
+            return sq.query(query)
+        except ServerError as e:
+            print(f"WDQS error (intent {i+1}/{retries}): {e}")
+            time.sleep(60)
+        except ConnectionError as e:
+            print(f"WDQS error (intent {i+1}/{retries}): {e}")
+            time.sleep(60)
+        except ChunkedEncodingError as e:
+            print(f"WDQS error (intent {i+1}/{retries}): {e}")
+            time.sleep(60)
+        except Timeout as e:
+            print(f"WDQS Timeout (intent {i+1}/{retries}): {e}")
+    return None
 
-def get_results2(endpoint_url, query):
+def get_results2(endpoint_url, query, verbose=True): # no emprat
+    if verbose:
+        print("Fent consulta")
+        print(query)
     #user_agent = "PereBot/1.0 (ca:User:Pere_prlpz) Python/%s.%s" % (sys.version_info[0], sys.version_info[1])
     user_agent = "PereBot/1.0 (ca:User:Pere_prlpz; prlpzb@gmail.com) Python/%s.%s" % (sys.version_info[0], sys.version_info[1])
     print (user_agent)
@@ -404,6 +424,7 @@ if len(arguments)>0:
 else:
     print("Manca el nom de la llista de monuments. Agafem opció per defecte")
     nomllista="Llista de monuments de l'Eixample de Barcelona"
+tquery = 0
 print ("Important codis existents de Wikidata")
 ipacexist=carrega_ipac(iddisc)
 igpcvexist=carrega_igpcv(iddisc)

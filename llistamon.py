@@ -191,11 +191,20 @@ def igpcv_url(idurl):
                         codi = "%02d.%02d.%03d-%03d" % (int(codiparts[0]), int(codiparts[1]), int(codisufix[0]), int(codisufix[1]))
     return(codi)
  
-def get_results(endpoint_url, query):
-    user_agent = "PereBot/1.0 (ca:User:Pere_prlpz; prlpzb@gmail.com) Python/%s.%s" % (sys.version_info[0], sys.version_info[1])
+def get_results(endpoint_url, query, tmin=180, verbose=True):
+    global tquery
+    if verbose:
+        print("Fent consulta")
+        print(query)
+        print("Temps des de la darrera query:", time.time()-tquery, "segons")
+    if time.time()-tquery < tmin:
+        print ("Esperant")
+        time.sleep(tmin)
+    user_agent = "PereBot/1.0 (ca:User:Pere_prlpz; prlpzb@gmail.com) Python/%s.%s.%s" % (sys.version_info[0], sys.version_info[1], time.time())
     sparql = SPARQLWrapper(endpoint_url, agent=user_agent)
     sparql.setQuery(query)
     sparql.setReturnFormat(JSON)
+    tquery = time.time()
     return sparql.query().convert()
 
 def get_results2(endpoint_url, query):
@@ -648,6 +657,7 @@ if len(arguments)>0:
 else:
     print("Manca el nom de la llista de monuments. Agafem opció per defecte")
     nomllista="Llista de monuments de l'Eixample de Barcelona"
+tquery = 0
 site=pwb.Site('ca')
 print (nomllista)
 monllista, llistaq, faltenq, cataleg =monllistes(nomllista, site=site)
